@@ -1,0 +1,14 @@
+body{font-family:'Heebo',sans-serif;background:#f8f9fa}
+.card{border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.05);border:none}
+.card-tile{padding:1.5rem;text-align:center;cursor:pointer;transition:transform .2s,box-shadow .2s}
+.card-tile:hover{transform:translateY(-3px);box-shadow:0 4px 16px rgba(0,0,0,0.1)}
+.btn-primary{background:#0066cc;border-color:#0066cc}
+.navbar{background:linear-gradient(135deg,#0066cc,#0052a3);color:#fff}
+.avatar{width:40px;height:40px;border-radius:50%;background:#e7f1ff;color:#0066cc;display:inline-flex;align-items:center;justify-content:center;font-weight:bold;margin-left:8px}
+.cat-badge{display:inline-block;padding:3px 10px;border-radius:12px;font-size:.85rem;background:#e7f1ff;color:#0066cc}
+.severity-high{border-right:4px solid #dc3545}
+.severity-mid{border-right:4px solid #ffc107}
+.severity-low{border-right:4px solid #28a745}
+.role-admin{background:#fff4e0;color:#925400}
+.role-rabbi{background:#e7f1ff;color:#0066cc}
+.role-readonly{background:#f0f0f0;color:#555}
