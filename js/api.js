@@ -48,6 +48,25 @@ async function loadData() {
     _data.users.unshift({username:'admin',password_hash:'6742',role:'מנהל',permissions:'all'});
     saveStored(_data);
   }
+  // Backfill IDs for behavior events that don't have one (from old data)
+  let needSave = false;
+  let maxBehaviorId = _data.behavior.reduce((m, e) => Math.max(m, parseInt(e['מזהה']) || 0), 0);
+  _data.behavior.forEach(e => {
+    if (!e['מזהה']) {
+      maxBehaviorId += 1;
+      e['מזהה'] = maxBehaviorId;
+      needSave = true;
+    }
+  });
+  let maxStudentId = _data.students.reduce((m, s) => Math.max(m, parseInt(s['מזהה']) || 0), 0);
+  _data.students.forEach(s => {
+    if (!s['מזהה']) {
+      maxStudentId += 1;
+      s['מזהה'] = maxStudentId;
+      needSave = true;
+    }
+  });
+  if (needSave) saveStored(_data);
   return _data;
 }
 
