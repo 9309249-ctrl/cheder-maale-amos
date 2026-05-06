@@ -45,18 +45,64 @@ function drawStudents(list) {
   tbody.innerHTML = list.map(s => {
     const fullName = (s['שם פרטי']||'') + ' ' + (s['שם משפחה']||'');
     const initials = fullName.trim().split(' ').map(w=>w[0]||'').join('').slice(0,2);
-    return `<tr>
-      <td>${s['מזהה']||''}</td>
-      <td><span class="avatar">${initials}</span>${fullName}</td>
-      <td>${s['גיל']||''}</td>
-      <td>${s['מחזור']||''}</td>
-      <td>${s['טלפון אם']||''}</td>
+    return `<tr style="cursor:pointer">
+      <td onclick="viewStudent(${s['מזהה']})">${s['מזהה']||''}</td>
+      <td onclick="viewStudent(${s['מזהה']})"><span class="avatar">${initials}</span>${fullName}</td>
+      <td onclick="viewStudent(${s['מזהה']})">${s['גיל']||''}</td>
+      <td onclick="viewStudent(${s['מזהה']})">${s['מחזור']||''}</td>
+      <td onclick="viewStudent(${s['מזהה']})">${s['טלפון אם']||''}</td>
       <td>
-        <button class="btn btn-sm btn-outline-primary me-1" onclick="editStudent(${s['מזהה']})"><i class="bi bi-pencil"></i></button>
-        <button class="btn btn-sm btn-outline-danger" onclick="deleteStudent(${s['מזהה']})"><i class="bi bi-trash"></i></button>
+        <button class="btn btn-sm btn-outline-info me-1" onclick="viewStudent(${s['מזהה']})" title="צפייה"><i class="bi bi-eye"></i></button>
+        <button class="btn btn-sm btn-outline-primary me-1" onclick="editStudent(${s['מזהה']})" title="עריכה"><i class="bi bi-pencil"></i></button>
+        <button class="btn btn-sm btn-outline-danger" onclick="deleteStudent(${s['מזהה']})" title="מחיקה"><i class="bi bi-trash"></i></button>
       </td>
     </tr>`;
   }).join('');
+}
+
+async function viewStudent(id) {
+  const s = _students.find(x => String(x['מזהה']) === String(id));
+  if (!s) return;
+  const events = ((await api('listBehavior', [])).data || [])
+    .filter(e => String(e['תלמיד_מזהה']) === String(id))
+    .sort((a,b) => new Date(b['תאריך']) - new Date(a['תאריך']));
+  const fullName = (s['שם פרטי']||'') + ' ' + (s['שם משפחה']||'');
+  const eventsHtml = events.length ? events.map(e => {
+    const sev = e['חומרה'] === 'גבוהה' ? 'severity-high' : e['חומרה'] === 'נמוכה' ? 'severity-low' : 'severity-mid';
+    const dt = e['תאריך'] ? new Date(e['תאריך']).toLocaleDateString('he-IL') : '';
+    return `<div class="card p-2 mb-2 ${sev}">
+      <div class="d-flex justify-content-between"><span class="cat-badge">${e['קטגוריה']||''}</span><small class="text-muted">${dt}</small></div>
+      <p class="mb-0 mt-1 small">${e['תיאור']||''}</p>
+    </div>`;
+  }).join('') : '<p class="text-muted">אין אירועים מתועדים</p>';
+
+  const html = `<div class="modal fade" id="viewStuModal"><div class="modal-dialog modal-lg"><div class="modal-content">
+    <div class="modal-header"><h5><i class="bi bi-person"></i> ${fullName}</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <div class="row g-2 mb-3">
+        <div class="col-md-3"><div class="card p-2 text-center"><strong>${s['גיל']||'-'}</strong><div class="small text-muted">גיל</div></div></div>
+        <div class="col-md-3"><div class="card p-2 text-center"><strong>${s['מחזור']||'-'}</strong><div class="small text-muted">מחזור</div></div></div>
+        <div class="col-md-3"><div class="card p-2 text-center"><strong>${events.length}</strong><div class="small text-muted">אירועים</div></div></div>
+        <div class="col-md-3"><div class="card p-2 text-center"><strong>${events.filter(e=>e['חומרה']==='גבוהה').length}</strong><div class="small text-muted">חומרה גבוהה</div></div></div>
+      </div>
+      <h6>פרטים אישיים</h6>
+      <table class="table table-sm">
+        <tr><td><strong>שם אם</strong></td><td>${s['שם אם']||'-'}</td><td><strong>טלפון אם</strong></td><td>${s['טלפון אם']||'-'}</td></tr>
+        <tr><td><strong>שם אב</strong></td><td>${s['שם אב']||'-'}</td><td><strong>טלפון אב</strong></td><td>${s['טלפון אב']||'-'}</td></tr>
+        <tr><td><strong>כתובת</strong></td><td colspan="3">${s['כתובת']||'-'}</td></tr>
+        ${s['הערות'] ? `<tr><td><strong>הערות</strong></td><td colspan="3">${s['הערות']}</td></tr>` : ''}
+      </table>
+      <h6 class="mt-3">היסטוריית התנהגות (${events.length})</h6>
+      ${eventsHtml}
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline-primary" onclick="bootstrap.Modal.getInstance(document.getElementById('viewStuModal')).hide(); editStudent(${id})"><i class="bi bi-pencil"></i> ערוך</button>
+      <button class="btn btn-secondary" data-bs-dismiss="modal">סגור</button>
+    </div>
+  </div></div></div>`;
+  const old = document.getElementById('viewStuModal'); if (old) old.remove();
+  document.body.insertAdjacentHTML('beforeend', html);
+  new bootstrap.Modal(document.getElementById('viewStuModal')).show();
 }
 
 function editStudent(id) {
