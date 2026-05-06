@@ -60,13 +60,9 @@ async function loadStats() {
   document.getElementById('stat-week').textContent = week.length;
 }
 
-// Auto-login from session
-const saved = sessionStorage.getItem('user');
-if (saved) {
-  currentUser = JSON.parse(saved);
-  document.getElementById('user-info').textContent = currentUser.username + ' (' + currentUser.role + ')';
-  showPage('home');
-  loadStats();
-} else {
-  showPage('login');
-}
+// Auto-login (no auth required for now)
+currentUser = { username: 'admin', role: 'מנהל' };
+sessionStorage.setItem('user', JSON.stringify(currentUser));
+document.getElementById('user-info').textContent = 'admin (מנהל)';
+showPage('home');
+setTimeout(loadStats, 500);
