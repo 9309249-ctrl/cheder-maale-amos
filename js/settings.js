@@ -501,9 +501,11 @@ function drawReportResults() {
     sorted.forEach(e => {
       const sev = e['חומרה']==='גבוהה' ? 'severity-high' : e['חומרה']==='נמוכה' ? 'severity-low' : 'severity-mid';
       const dt = e['תאריך'] ? new Date(e['תאריך']).toLocaleString('he-IL') : '';
+      const rep = e['דווח_עי'] ? `<small class="text-muted ms-2"><i class="bi bi-person-fill"></i> ${escHtml(e['דווח_עי'])}</small>` : '';
       html += `<div class="card p-2 mb-2 ${sev}">
-        <div class="d-flex justify-content-between"><div><span class="cat-badge">${e['קטגוריה']||''}</span><strong class="mx-2">${e['שם תלמיד']||''}</strong></div><small class="text-muted">${dt}</small></div>
-        <p class="mb-0 mt-2">${e['תיאור']||''}</p>
+        <div class="d-flex justify-content-between"><div><span class="cat-badge">${escHtml(e['קטגוריה']||'')}</span><strong class="mx-2">${escHtml(e['שם תלמיד']||'')}</strong></div><small class="text-muted">${escHtml(dt)}</small></div>
+        <p class="mb-0 mt-2">${escHtml(e['תיאור']||'')}</p>
+        ${rep ? `<div class="mt-1">${rep}</div>` : ''}
       </div>`;
     });
     html += '</div>';
@@ -664,9 +666,10 @@ function renderBehaviorReport(events, students) {
   sorted.forEach(e => {
     const sevCls = e['חומרה'] === 'גבוהה' ? 'high' : e['חומרה'] === 'נמוכה' ? 'low' : 'mid';
     const date = e['תאריך'] ? new Date(e['תאריך']).toLocaleString('he-IL') : '';
+    const rep = e['דווח_עי'] ? ` · דווח ע"י ${escHtml(e['דווח_עי'])}` : '';
     evs += `<div class="event ${sevCls}">
-      <div class="event-meta"><strong>${e['שם תלמיד']||''}</strong> · ${e['קטגוריה']||''} · ${date} · חומרה ${e['חומרה']||''}</div>
-      <div>${e['תיאור']||''}</div>
+      <div class="event-meta"><strong>${escHtml(e['שם תלמיד']||'')}</strong> · ${escHtml(e['קטגוריה']||'')} · ${escHtml(date)} · חומרה ${escHtml(e['חומרה']||'')}${rep}</div>
+      <div>${escHtml(e['תיאור']||'')}</div>
     </div>`;
   });
   return `<div class="section">${stats}<h2>אירועי התנהגות</h2>${evs}</div>`;

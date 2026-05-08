@@ -57,6 +57,8 @@ function drawEvents(list) {
   el.innerHTML = list.map(e => {
     const sev = e['חומרה'] === 'גבוהה' ? 'severity-high' : e['חומרה'] === 'נמוכה' ? 'severity-low' : 'severity-mid';
     const date = e['תאריך'] ? new Date(e['תאריך']).toLocaleString('he-IL') : '';
+    const reporter = e['דווח_עי'] || '';
+    const reporterBadge = reporter ? `<small class="text-muted"><i class="bi bi-person-fill"></i> ${escHtml(reporter)}</small>` : '';
     return `<div class="card p-3 mb-2 ${sev}">
       <div class="d-flex justify-content-between">
         <div><span class="cat-badge">${escHtml(e['קטגוריה']||'')}</span><strong class="mx-2">${escHtml(e['שם תלמיד']||'')}</strong></div>
@@ -67,6 +69,7 @@ function drawEvents(list) {
         </div>
       </div>
       <p class="mb-0 mt-2">${escHtml(e['תיאור']||'')}</p>
+      ${reporterBadge ? `<div class="mt-2">${reporterBadge}</div>` : ''}
     </div>`;
   }).join('');
 }
@@ -114,6 +117,8 @@ function addEventModal() {
 async function saveEvent() {
   const sid = document.getElementById('ne-student').value;
   const stu = _allStudents.find(s => String(s['מזהה']) === sid);
+  const sess = JSON.parse(sessionStorage.getItem('user') || '{}');
+  const reporter = sess.username || 'admin';
   const obj = {
     'תלמיד_מזהה': sid,
     'שם תלמיד': stu ? `${stu['שם פרטי']||''} ${stu['שם משפחה']||''}` : '',
@@ -128,6 +133,7 @@ async function saveEvent() {
     await api('updateBehavior', [obj]);
   } else {
     obj['תאריך'] = new Date().toISOString();
+    obj['דווח_עי'] = reporter;
     await api('addBehavior', [obj]);
   }
   bootstrap.Modal.getInstance(document.getElementById('addEvModal')).hide();

@@ -135,9 +135,11 @@ async function viewStudent(id) {
   const eventsHtml = events.length ? events.map(e => {
     const sev = e['חומרה'] === 'גבוהה' ? 'severity-high' : e['חומרה'] === 'נמוכה' ? 'severity-low' : 'severity-mid';
     const dt = e['תאריך'] ? new Date(e['תאריך']).toLocaleDateString('he-IL') : '';
+    const reporter = e['דווח_עי'] || '';
     return `<div class="card p-2 mb-2 ${sev}">
       <div class="d-flex justify-content-between"><span class="cat-badge">${escHtml(e['קטגוריה']||'')}</span><small class="text-muted">${escHtml(dt)}</small></div>
       <p class="mb-0 mt-1 small">${escHtml(e['תיאור']||'')}</p>
+      ${reporter ? `<div class="mt-1"><small class="text-muted"><i class="bi bi-person-fill"></i> ${escHtml(reporter)}</small></div>` : ''}
     </div>`;
   }).join('') : '<p class="text-muted">אין אירועים מתועדים</p>';
 
@@ -327,7 +329,8 @@ td{padding:5pt;border:1px solid #e5e7eb}
 <h2>היסטוריית התנהגות (${events.length})</h2>
 ${events.map(e => {
   const c = e['חומרה']==='גבוהה'?'high':e['חומרה']==='נמוכה'?'low':'mid';
-  return `<div class="event ${c}"><strong>${escHtml(e['קטגוריה']||'')}</strong> · ${escHtml(new Date(e['תאריך']).toLocaleString('he-IL'))} · חומרה ${escHtml(e['חומרה']||'')}<br>${escHtml(e['תיאור']||'')}</div>`;
+  const rep = e['דווח_עי'] ? ` · דווח ע"י ${escHtml(e['דווח_עי'])}` : '';
+  return `<div class="event ${c}"><strong>${escHtml(e['קטגוריה']||'')}</strong> · ${escHtml(new Date(e['תאריך']).toLocaleString('he-IL'))} · חומרה ${escHtml(e['חומרה']||'')}${rep}<br>${escHtml(e['תיאור']||'')}</div>`;
 }).join('')}
 <script>setTimeout(()=>window.print(), 500);</script>
 </body></html>`;
