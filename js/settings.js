@@ -54,15 +54,16 @@ async function renderSettings() {
     const role = u['תפקיד']||'';
     const cls = role === 'מנהל' ? 'role-admin' : role === 'רב' ? 'role-rabbi' : 'role-readonly';
     const perms = (u['הרשאות']||'').split(',').map(p => p.trim()).filter(Boolean);
-    const permBadges = perms.map(p => `<span class="cat-badge me-1">${PERM_LABELS[p]||p}</span>`).join(' ');
+    const permBadges = perms.map(p => `<span class="cat-badge me-1">${escHtml(PERM_LABELS[p]||p)}</span>`).join(' ');
     const isAdmin = u['שם משתמש'] === 'admin' || u['תפקיד'] === 'מנהל';
     const lastAdmin = users.filter(x => x['תפקיד'] === 'מנהל').length === 1 && isAdmin;
+    const uname = u['שם משתמש']||'';
     const deleteBtn = lastAdmin ? '' :
-      `<button class="btn btn-sm btn-outline-danger" onclick="deleteUser('${u['שם משתמש']}')"><i class="bi bi-trash"></i></button>`;
+      `<button class="btn btn-sm btn-outline-danger" onclick="deleteUser(${jsAttr(uname)})"><i class="bi bi-trash"></i></button>`;
     const actions =
-      `<button class="btn btn-sm btn-outline-primary me-1" onclick="editUser('${u['שם משתמש']}')"><i class="bi bi-pencil"></i></button>
+      `<button class="btn btn-sm btn-outline-primary me-1" onclick="editUser(${jsAttr(uname)})"><i class="bi bi-pencil"></i></button>
        ${deleteBtn}`;
-    return `<tr><td>${u['שם משתמש']||''}</td><td><span class="badge ${cls}">${role}</span></td><td>${permBadges}</td><td>${actions}</td></tr>`;
+    return `<tr><td>${escHtml(uname)}</td><td><span class="badge ${cls}">${escHtml(role)}</span></td><td>${permBadges}</td><td>${actions}</td></tr>`;
   }).join('');
 }
 
@@ -71,43 +72,41 @@ async function editUser(username) {
   const u = data.users.find(x => x.username === username);
   if (!u) return;
   addUserModal();
-  setTimeout(() => {
+  const modalEl = document.getElementById('addUModal');
+  const populate = () => {
     document.getElementById('nu-name').value = u.username;
     document.getElementById('nu-name').readOnly = false;
     document.getElementById('nu-name').dataset.originalUsername = u.username;
     document.getElementById('nu-pass').value = u.password_hash || '';
     document.getElementById('nu-role').value = u.role || 'מורה';
     document.getElementById('nu-role').dispatchEvent(new Event('change'));
-    // Permissions
     const perms = (u.permissions || '').split(',').map(s=>s.trim());
     PERMISSION_AREAS.forEach(a => {
       document.getElementById('perm-' + a.key).checked = u.permissions === 'all' || perms.includes(a.key);
     });
-    // Visible students
     const allStu = !u.visible_students || u.visible_students === 'all';
     document.getElementById('all-students').checked = allStu;
     document.getElementById('all-students').dispatchEvent(new Event('change'));
     if (!allStu) {
-      const ids = u.visible_students.split(',').map(s=>s.trim());
-      ids.forEach(id => {
+      u.visible_students.split(',').map(s=>s.trim()).forEach(id => {
         const cb = document.getElementById('stu-' + id);
         if (cb) cb.checked = true;
       });
     }
-    // Visible categories
     const allCat = !u.visible_categories || u.visible_categories === 'all';
     document.getElementById('all-cats').checked = allCat;
     document.getElementById('all-cats').dispatchEvent(new Event('change'));
     if (!allCat) {
-      const cats = u.visible_categories.split(',').map(s=>s.trim());
-      cats.forEach(c => {
+      u.visible_categories.split(',').map(s=>s.trim()).forEach(c => {
         const cb = document.getElementById('cat-' + c.replace(/\s/g,'_'));
         if (cb) cb.checked = true;
       });
     }
-    document.getElementById('addUModal').dataset.editMode = '1';
-    document.querySelector('#addUModal h5').textContent = 'עריכת משתמש: ' + username;
-  }, 100);
+    modalEl.dataset.editMode = '1';
+    const headerH5 = modalEl.querySelector('h5');
+    if (headerH5) headerH5.textContent = 'עריכת משתמש: ' + username;
+  };
+  modalEl.addEventListener('shown.bs.modal', populate, { once: true });
 }
 
 async function deleteUser(username) {
@@ -128,13 +127,14 @@ async function renderClasses() {
   }
   const data = getData();
   tbody.innerHTML = classes.map(c => {
-    const count = data.students.filter(s => s['מחזור'] === c['שם'] && s['סטטוס'] !== 'סיים').length;
+    const name = c['שם']||'';
+    const count = data.students.filter(s => s['מחזור'] === name && s['סטטוס'] !== 'סיים').length;
     return `<tr>
-      <td><strong>${c['שם']||''}</strong> ${count > 0 ? `<span class="badge bg-secondary me-1">${count} תלמידים</span>` : ''}</td>
-      <td>${c['סדר']||''}</td>
+      <td><strong>${escHtml(name)}</strong> ${count > 0 ? `<span class="badge bg-secondary me-1">${count} תלמידים</span>` : ''}</td>
+      <td>${escHtml(c['סדר']||'')}</td>
       <td>
-        <button class="btn btn-sm btn-outline-primary me-1" onclick="editClassModal('${c['שם']}')"><i class="bi bi-pencil"></i></button>
-        <button class="btn btn-sm btn-outline-danger" onclick="deleteClass('${c['שם']}')"><i class="bi bi-trash"></i></button>
+        <button class="btn btn-sm btn-outline-primary me-1" onclick="editClassModal(${jsAttr(name)})"><i class="bi bi-pencil"></i></button>
+        <button class="btn btn-sm btn-outline-danger" onclick="deleteClass(${jsAttr(name)})"><i class="bi bi-trash"></i></button>
       </td>
     </tr>`;
   }).join('');
@@ -143,22 +143,24 @@ async function renderClasses() {
 function addClassModal(existing) {
   const c = existing || { 'שם': '', 'סדר': '' };
   const isEdit = !!existing;
+  const cn = c['שם']||'';
+  const co = c['סדר']||'';
   const html = `<div class="modal fade" id="classModal"><div class="modal-dialog"><div class="modal-content">
-    <div class="modal-header"><h5><i class="bi bi-mortarboard"></i> ${isEdit ? 'עריכת כיתה: ' + c['שם'] : 'כיתה חדשה'}</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-header"><h5><i class="bi bi-mortarboard"></i> ${isEdit ? 'עריכת כיתה: ' + escHtml(cn) : 'כיתה חדשה'}</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
     <div class="modal-body">
       <div class="mb-3">
         <label class="form-label">שם כיתה</label>
-        <input id="cls-name" class="form-control form-control-lg" value="${c['שם']||''}" placeholder="לדוגמה: א, שיעור א, כיתה ב">
+        <input id="cls-name" class="form-control form-control-lg" value="${escHtml(cn)}" placeholder="לדוגמה: א, שיעור א, כיתה ב">
       </div>
       <div class="mb-3">
         <label class="form-label">סדר (קובע את סדר העלייה השנתית)</label>
-        <input id="cls-order" type="number" class="form-control" value="${c['סדר']||''}" placeholder="1, 2, 3...">
+        <input id="cls-order" type="number" class="form-control" value="${escHtml(co)}" placeholder="1, 2, 3...">
         <small class="text-muted">מספר נמוך יותר = כיתה נמוכה יותר. במעבר שנתי עוברים לסדר הבא.</small>
       </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" data-bs-dismiss="modal">ביטול</button>
-      <button class="btn btn-primary" onclick="saveClass(${isEdit ? '1' : '0'},'${c['שם']||''}')"><i class="bi bi-check"></i> שמור</button>
+      <button class="btn btn-primary" onclick="saveClass(${isEdit ? '1' : '0'},${jsAttr(cn)})"><i class="bi bi-check"></i> שמור</button>
     </div>
   </div></div></div>`;
   const old = document.getElementById('classModal'); if (old) old.remove();
@@ -353,15 +355,21 @@ async function saveUser() {
   const r = editMode ? await api('updateUser', [obj]) : await api('addUser', [obj]);
   if (!r.ok) { alert(r.error || 'שגיאה'); return; }
   bootstrap.Modal.getInstance(document.getElementById('addUModal')).hide();
-  // Refresh in-memory currentUser if user edited themselves
-  const sess = JSON.parse(sessionStorage.getItem('user') || '{}');
-  if (typeof currentUser !== 'undefined' && currentUser && sess.username) {
-    currentUser.username = sess.username;
-    currentUser.role = sess.role;
-    currentUser.permissions = sess.permissions;
-    const ui = document.getElementById('user-info');
-    if (ui) ui.innerHTML = currentUser.username + ' (' + (currentUser.role||'') + ') <button class="btn btn-sm btn-outline-light ms-2" onclick="logout()">יציאה</button>';
-    if (typeof filterByPermissions === 'function') filterByPermissions();
+  // Refresh in-memory currentUser if user edited themselves (read fresh from _data.users)
+  if (typeof currentUser !== 'undefined' && currentUser) {
+    const editedSelf = editMode && (originalUsername === currentUser.username || obj['שם משתמש'] === currentUser.username);
+    if (editedSelf) {
+      const fresh = getData().users.find(u => u.username === obj['שם משתמש']);
+      if (fresh) {
+        currentUser.username = fresh.username;
+        currentUser.role = fresh.role;
+        currentUser.permissions = fresh.permissions;
+        sessionStorage.setItem('user', JSON.stringify({username: fresh.username, role: fresh.role, permissions: fresh.permissions}));
+        const ui = document.getElementById('user-info');
+        if (ui) ui.innerHTML = escHtml(currentUser.username) + ' (' + escHtml(currentUser.role||'') + ') <button class="btn btn-sm btn-outline-light ms-2" onclick="logout()">יציאה</button>';
+        if (typeof filterByPermissions === 'function') filterByPermissions();
+      }
+    }
   }
   renderSettings();
 }

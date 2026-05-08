@@ -48,16 +48,6 @@ async function doLogin(){
   const u = document.getElementById('username').value.trim();
   const p = document.getElementById('password').value;
   if (!u || !p) return;
-  // Local fallback: admin/6742 always works
-  if (u === 'admin' && p === '6742') {
-    currentUser = { username: 'admin', role: 'מנהל', permissions: 'all' };
-    sessionStorage.setItem('user', JSON.stringify(currentUser));
-    document.getElementById('user-info').innerHTML = u + ' (מנהל) <button class="btn btn-sm btn-outline-light ms-2" onclick="logout()">יציאה</button>';
-    showPage('home');
-    loadStats();
-    filterByPermissions();
-    return;
-  }
   const r = await api('authenticate', [u, p]);
   if (r.ok && r.data && r.data.ok) {
     currentUser = r.data.user;

@@ -77,14 +77,25 @@ async function loadData() {
 }
 
 function getData() {
-  return _data || { students: [], behavior: [], users: [], categories: [] };
+  return _data || { students: [], behavior: [], users: [], categories: [], classes: [] };
 }
 
 function saveData(part, value) {
-  if (!_data) _data = { students:[], behavior:[], users:[], categories:[] };
+  if (!_data) _data = { students:[], behavior:[], users:[], categories:[], classes:[] };
   _data[part] = value;
   saveStored(_data);
 }
+
+// HTML escape for safe interpolation into innerHTML or attributes
+function escHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+// JS string literal safe for use inside an HTML attribute (e.g. onclick="fn(${jsAttr(x)})")
+function jsAttr(s) {
+  return JSON.stringify(String(s == null ? '' : s)).replace(/"/g, '&quot;');
+}
+window.escHtml = escHtml;
+window.jsAttr = jsAttr;
 
 // Compatibility shim: old api() function maps to local operations
 async function api(fn, args) {
@@ -146,6 +157,9 @@ async function api(fn, args) {
       if (_data.classes.find(c => c['שם'] === obj['שם'])) return { ok: false, error: 'כיתה כבר קיימת' };
       const maxOrder = _data.classes.reduce((m,c) => Math.max(m, parseInt(c['סדר'])||0), 0);
       if (!obj['סדר']) obj['סדר'] = maxOrder + 1;
+      const order = parseInt(obj['סדר']);
+      if (_data.classes.find(c => parseInt(c['סדר']) === order)) return { ok: false, error: 'סדר ' + order + ' כבר תפוס' };
+      obj['סדר'] = order;
       _data.classes.push(obj);
       saveStored(_data);
       markLocalChange();
@@ -247,7 +261,7 @@ async function api(fn, args) {
     }
     case 'promoteAll': {
       // Bulk year promotion: every active student moves up; last class graduates
-      const sorted = [..._data.classes].sort((a,b) => parseInt(a['סדר']) - parseInt(b['סדר']));
+      const sorted = [..._data.classes].sort((a,b) => (parseInt(a['סדר'])||0) - (parseInt(b['סדר'])||0));
       if (!sorted.length) return { ok: false, error: 'אין כיתות מוגדרות' };
       let promoted = 0, graduated = 0, skipped = 0;
       const updates = [];
@@ -266,9 +280,14 @@ async function api(fn, args) {
       });
       saveStored(_data);
       markLocalChange();
-      // Sync each updated student in background
-      updates.forEach(s => syncUpdateRow('תלמידים', s, 'מזהה', s['מזהה']));
-      setTimeout(updateSyncIndicator, 1000);
+      (async () => {
+        const CONCURRENCY = 4;
+        for (let i = 0; i < updates.length; i += CONCURRENCY) {
+          const batch = updates.slice(i, i + CONCURRENCY);
+          await Promise.all(batch.map(s => syncUpdateRow('תלמידים', s, 'מזהה', s['מזהה'])));
+        }
+        updateSyncIndicator();
+      })();
       return { ok: true, data: { promoted, graduated, skipped } };
     }
     case 'addBehavior': {
@@ -457,10 +476,10 @@ async function syncToBackend() {
 let _schemaEnsured = false;
 async function ensureSchemaOnce() {
   if (_schemaEnsured) return;
-  _schemaEnsured = true;
   try {
-    await fetch(APPS_SCRIPT_URL + '?action=cheder_ensureSchema&token=' + AGENT_TOKEN +
+    const r = await fetch(APPS_SCRIPT_URL + '?action=cheder_ensureSchema&token=' + AGENT_TOKEN +
       '&instance=' + INSTANCE, { method: 'GET', mode: 'cors' });
+    if (r.ok) _schemaEnsured = true;
   } catch {}
 }
 

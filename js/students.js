@@ -38,11 +38,10 @@ async function renderStudents() {
 
   const r = await api('listStudents', []);
   _students = r.data || [];
-  applyStudentFilters();
-
+  document.getElementById('s-status').value = _statusFilter;
   document.getElementById('s-search').oninput = applyStudentFilters;
   document.getElementById('s-status').onchange = applyStudentFilters;
-  document.getElementById('s-status').value = _statusFilter;
+  applyStudentFilters();
 }
 
 function applyStudentFilters() {
@@ -76,11 +75,11 @@ function drawStudents(list) {
          <button class="btn btn-sm btn-outline-secondary me-1" onclick="deactivateStudent(${s['מזהה']})" title="הוצא מהמוסד"><i class="bi bi-box-arrow-right"></i></button>`;
     const grayed = isGrad ? 'style="opacity:.65"' : '';
     return `<tr ${grayed}>
-      <td onclick="viewStudent(${s['מזהה']})" style="cursor:pointer">${s['מזהה']||''}</td>
-      <td onclick="viewStudent(${s['מזהה']})" style="cursor:pointer"><span class="avatar">${initials}</span>${fullName}</td>
-      <td onclick="viewStudent(${s['מזהה']})" style="cursor:pointer">${s['גיל']||''}</td>
-      <td onclick="viewStudent(${s['מזהה']})" style="cursor:pointer">${s['מחזור']||''}</td>
-      <td onclick="viewStudent(${s['מזהה']})" style="cursor:pointer">${s['טלפון אם']||''}</td>
+      <td onclick="viewStudent(${s['מזהה']})" style="cursor:pointer">${escHtml(s['מזהה']||'')}</td>
+      <td onclick="viewStudent(${s['מזהה']})" style="cursor:pointer"><span class="avatar">${escHtml(initials)}</span>${escHtml(fullName)}</td>
+      <td onclick="viewStudent(${s['מזהה']})" style="cursor:pointer">${escHtml(s['גיל']||'')}</td>
+      <td onclick="viewStudent(${s['מזהה']})" style="cursor:pointer">${escHtml(s['מחזור']||'')}</td>
+      <td onclick="viewStudent(${s['מזהה']})" style="cursor:pointer">${escHtml(s['טלפון אם']||'')}</td>
       <td>${statusBadge}</td>
       <td>
         <button class="btn btn-sm btn-outline-info me-1" onclick="viewStudent(${s['מזהה']})" title="צפייה"><i class="bi bi-eye"></i></button>
@@ -223,7 +222,7 @@ async function emailParentSummary(id) {
       lines.push(`- ${dt} | ${e['קטגוריה']||''} (${e['חומרה']||'-'}): ${e['תיאור']||''}`);
     });
   }
-  lines.push(``, 'בברכה,', 'בית התלמוד · בית שמש');
+  lines.push(``, 'בברכה,', 'תלמוד תורה מעלה עמוס');
   const body = lines.join('\n');
   const mailto = `mailto:${motherEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   window.location.href = mailto;
@@ -318,7 +317,7 @@ td{padding:5pt;border:1px solid #e5e7eb}
 </style></head><body>
 <button class="no-print" onclick="window.print()" style="background:#0066cc;color:#fff;border:none;padding:10pt 20pt;border-radius:6px;cursor:pointer">🖨 הדפס</button>
 <h1>${fullName}</h1>
-<p>בית התלמוד · בית שמש · ${today}</p>
+<p>תלמוד תורה מעלה עמוס · ${today}</p>
 <table>
 <tr><th>גיל</th><td>${s['גיל']||'-'}</td><th>מחזור</th><td>${s['מחזור']||'-'}</td></tr>
 <tr><th>שם אם</th><td>${s['שם אם']||'-'}</td><th>טלפון אם</th><td>${s['טלפון אם']||'-'}</td></tr>
