@@ -13,12 +13,25 @@ let _online = false;
 
 function loadStored() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); }
-  catch { return {}; }
+  catch (e) {
+    // Backup corrupted data before fallback so a recovery is possible
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) localStorage.setItem(STORAGE_KEY + '_corrupt_' + Date.now(), raw.slice(0, 5e5));
+    } catch {}
+    return {};
+  }
 }
 
 function saveStored(d) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); }
-  catch {}
+  catch (e) {
+    // Quota exceeded or disabled — surface a one-time warning
+    if (typeof window !== 'undefined' && !window._storageWarned && typeof window.notify === 'function') {
+      window._storageWarned = true;
+      window.notify('שמירה מקומית נכשלה — בדוק שיש מקום בדפדפן', 'warn');
+    }
+  }
 }
 
 async function fetchJson(path) {
@@ -134,8 +147,20 @@ async function api(fn, args) {
       }
       return { ok: true, data: events };
     }
-    case 'listCategories':
-      return { ok: true, data: _data.categories.map(c => ({ 'קטגוריה': c.name })) };
+    case 'listCategories': {
+      // Filter by current user's visible_categories (admins see all)
+      const u = JSON.parse(sessionStorage.getItem('user') || '{}');
+      const isAdmin = u.username === 'admin' || u.role === 'מנהל';
+      let cats = _data.categories.map(c => ({ 'קטגוריה': c.name }));
+      if (!isAdmin) {
+        const full = _data.users.find(x => x.username === u.username);
+        if (full && full.visible_categories && full.visible_categories !== 'all') {
+          const allowed = full.visible_categories.split(',').map(s => s.trim()).filter(Boolean);
+          cats = cats.filter(c => allowed.includes(c['קטגוריה']));
+        }
+      }
+      return { ok: true, data: cats };
+    }
     case 'listUsers':
       return { ok: true, data: _data.users.map(u => ({ 'שם משתמש': u.username, 'תפקיד': u.role, 'הרשאות': u.permissions || '' })) };
     case 'addStudent': {
@@ -172,8 +197,10 @@ async function api(fn, args) {
       const idx = _data.classes.findIndex(c => c['שם'] === oldName);
       if (idx < 0) return { ok: false, error: 'not found' };
       const cleanObj = { 'שם': obj['שם'], 'סדר': parseInt(obj['סדר']) || _data.classes[idx]['סדר'] };
+      // Reject duplicate סדר (excluding self)
       if (_data.classes.some((c, i) => i !== idx && parseInt(c['סדר']) === cleanObj['סדר']))
         return { ok: false, error: 'סדר ' + cleanObj['סדר'] + ' כבר תפוס' };
+      // Reject duplicate name (excluding self)
       if (_data.classes.some((c, i) => i !== idx && c['שם'] === cleanObj['שם']))
         return { ok: false, error: 'שם הכיתה כבר קיים' };
       _data.classes[idx] = cleanObj;
@@ -184,6 +211,7 @@ async function api(fn, args) {
       affectedStudents.forEach(s => { s['מחזור'] = cleanObj['שם']; });
       saveStored(_data);
       markLocalChange();
+      // Atomic-ish sync: update students first (they reference the class), then handle class row
       (async () => {
         for (const s of affectedStudents) {
           await syncUpdateRow('תלמידים', s, 'מזהה', s['מזהה']);
@@ -286,11 +314,18 @@ async function api(fn, args) {
       });
       saveStored(_data);
       markLocalChange();
+      // Throttled sync — 4 parallel max; track failures; refresh dirty window during loop
       (async () => {
         const CONCURRENCY = 4;
+        let failed = 0;
         for (let i = 0; i < updates.length; i += CONCURRENCY) {
+          markLocalChange();
           const batch = updates.slice(i, i + CONCURRENCY);
-          await Promise.all(batch.map(s => syncUpdateRow('תלמידים', s, 'מזהה', s['מזהה'])));
+          const results = await Promise.all(batch.map(s => syncUpdateRow('תלמידים', s, 'מזהה', s['מזהה'])));
+          failed += results.filter(r => r === false).length;
+        }
+        if (failed > 0 && typeof window !== 'undefined' && typeof window.notify === 'function') {
+          window.notify(`${failed} סנכרונים נכשלו במעבר השנתי — נסה שוב כשתהיה רשת`, 'warn');
         }
         updateSyncIndicator();
       })();
@@ -303,6 +338,13 @@ async function api(fn, args) {
       if (!obj['מזהה']) {
         const max = _data.behavior.reduce((m, e) => Math.max(m, parseInt(e['מזהה']) || 0), 0);
         obj['מזהה'] = max + 1;
+      }
+      // Defense-in-depth: ensure reporter is set even if caller forgot
+      if (!obj['דווח_עי']) {
+        try {
+          const sess = JSON.parse(sessionStorage.getItem('user') || '{}');
+          if (sess.username) obj['דווח_עי'] = sess.username;
+        } catch {}
       }
       _data.behavior.push(obj);
       saveStored(_data);
@@ -480,21 +522,24 @@ async function syncToBackend() {
 }
 
 let _schemaEnsured = false;
+let _schemaEnsuredAt = 0;
 async function ensureSchemaOnce() {
-  if (_schemaEnsured) return;
+  // Re-check every 30 minutes even after success (in case sheet was reset)
+  if (_schemaEnsured && (Date.now() - _schemaEnsuredAt) < 30*60*1000) return;
   try {
-    const r = await fetch(APPS_SCRIPT_URL + '?action=cheder_ensureSchema&token=' + AGENT_TOKEN +
-      '&instance=' + INSTANCE, { method: 'GET', mode: 'cors' });
-    if (r.ok) _schemaEnsured = true;
+    const params = new URLSearchParams({ action: 'cheder_ensureSchema', token: AGENT_TOKEN, instance: INSTANCE });
+    const r = await fetch(APPS_SCRIPT_URL + '?' + params.toString(), { method: 'GET', mode: 'cors' });
+    if (r.ok) { _schemaEnsured = true; _schemaEnsuredAt = Date.now(); }
   } catch {}
 }
 
 async function syncRowToSheet(tab, row) {
   try {
-    const url = APPS_SCRIPT_URL + '?action=cheder_appendRow&token=' + AGENT_TOKEN +
-      '&instance=' + INSTANCE +
-      '&tab=' + encodeURIComponent(tab) + '&row=' + encodeURIComponent(JSON.stringify(row));
-    const r = await fetch(url, { method: 'GET', mode: 'cors' });
+    const params = new URLSearchParams({
+      action: 'cheder_appendRow', token: AGENT_TOKEN, instance: INSTANCE,
+      tab, row: JSON.stringify(row),
+    });
+    const r = await fetch(APPS_SCRIPT_URL + '?' + params.toString(), { method: 'GET', mode: 'cors' });
     if (!r.ok) return false;
     const d = await r.json();
     return d.ok;
@@ -587,8 +632,10 @@ async function pullAllFromSheet() {
   }
   _data.classes = safeReplace(_data.classes, classes);
   saveStored(_data);
+  // If everything failed, mark offline; if at least one succeeded, online
   const allFailed = students === null && behavior === null && users === null && classes === null;
   _online = !allFailed;
+  // Refresh in-memory currentUser from refreshed users list
   try {
     const sess = JSON.parse(sessionStorage.getItem('user') || '{}');
     if (sess.username && typeof currentUser !== 'undefined' && currentUser) {

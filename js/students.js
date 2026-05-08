@@ -183,7 +183,14 @@ function editStudent(id) {
     document.getElementById('ns-fname').value = s['שם פרטי']||'';
     document.getElementById('ns-lname').value = s['שם משפחה']||'';
     document.getElementById('ns-age').value = s['גיל']||'';
-    document.getElementById('ns-cycle').value = s['מחזור']||'';
+    const cycleSelect = document.getElementById('ns-cycle');
+    const cur = s['מחזור']||'';
+    if (cur && cycleSelect && !cycleSelect.querySelector(`option[value="${CSS.escape(cur)}"]`)) {
+      const opt = document.createElement('option');
+      opt.value = cur; opt.textContent = cur + ' (לא ברשימה)';
+      cycleSelect.appendChild(opt);
+    }
+    if (cycleSelect) cycleSelect.value = cur;
     document.getElementById('ns-mname').value = s['שם אם']||'';
     document.getElementById('ns-mphone').value = s['טלפון אם']||'';
     document.getElementById('ns-fname2').value = s['שם אב']||'';
@@ -299,14 +306,16 @@ function parseCSVLine(line) {
 function printStudentReport(id) {
   const s = _students.find(x => String(x['מזהה']) === String(id));
   if (!s) return;
-  // Open print view
+  // Open print view (popup-blocker safe)
   const w = window.open('', '_blank');
+  if (!w) { alert('הדפדפן חוסם חלונות פופ-אפ — אפשר חלון פופ-אפ לאתר ונסה שוב'); return; }
   Promise.resolve(api('listBehavior', [])).then(b => {
     const events = (b.data || []).filter(e => String(e['תלמיד_מזהה']) === String(id))
       .sort((a,b) => new Date(b['תאריך']) - new Date(a['תאריך']));
     const fullName = (s['שם פרטי']||'') + ' ' + (s['שם משפחה']||'');
     const today = new Date().toLocaleDateString('he-IL');
-    const html = `<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="utf-8"><title>${escHtml(fullName)}</title>
+    const titleSafe = String(fullName).replace(/[<>&"']/g,' ');
+    const html = `<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="utf-8"><title>${titleSafe}</title>
 <style>
 @page{size:A4;margin:1.5cm}body{font-family:Arial,sans-serif;direction:rtl;color:#1f2937}
 h1{color:#0066cc;border-bottom:3px solid #0066cc;padding-bottom:8pt}

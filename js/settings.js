@@ -97,9 +97,9 @@ async function editUser(username) {
     document.getElementById('all-cats').checked = allCat;
     document.getElementById('all-cats').dispatchEvent(new Event('change'));
     if (!allCat) {
-      u.visible_categories.split(',').map(s=>s.trim()).forEach(c => {
-        const cb = document.getElementById('cat-' + c.replace(/\s/g,'_'));
-        if (cb) cb.checked = true;
+      const wanted = u.visible_categories.split(',').map(s=>s.trim());
+      document.querySelectorAll('.cat-cb').forEach(cb => {
+        if (wanted.includes(cb.dataset.catName || cb.value)) cb.checked = true;
       });
     }
     modalEl.dataset.editMode = '1';
@@ -241,14 +241,14 @@ function addUserModal() {
 
   const studentOpts = data.students.map(s => `
     <div class="form-check">
-      <input class="form-check-input student-cb" type="checkbox" value="${s['מזהה']}" id="stu-${s['מזהה']}">
-      <label class="form-check-label" for="stu-${s['מזהה']}">${s['שם פרטי']||''} ${s['שם משפחה']||''} <small class="text-muted">(${s['מחזור']||''})</small></label>
+      <input class="form-check-input student-cb" type="checkbox" value="${escHtml(s['מזהה'])}" id="stu-${escHtml(s['מזהה'])}">
+      <label class="form-check-label" for="stu-${escHtml(s['מזהה'])}">${escHtml(s['שם פרטי']||'')} ${escHtml(s['שם משפחה']||'')} <small class="text-muted">(${escHtml(s['מחזור']||'')})</small></label>
     </div>`).join('');
 
-  const catOpts = data.categories.map(c => `
+  const catOpts = data.categories.map((c, i) => `
     <div class="form-check">
-      <input class="form-check-input cat-cb" type="checkbox" value="${c.name}" id="cat-${c.name.replace(/\s/g,'_')}">
-      <label class="form-check-label" for="cat-${c.name.replace(/\s/g,'_')}">${c.name}</label>
+      <input class="form-check-input cat-cb" type="checkbox" value="${escHtml(c.name)}" id="cat-${i}" data-cat-name="${escHtml(c.name)}">
+      <label class="form-check-label" for="cat-${i}">${escHtml(c.name)}</label>
     </div>`).join('');
 
   const html = `<div class="modal fade" id="addUModal"><div class="modal-dialog modal-lg"><div class="modal-content">
@@ -391,28 +391,28 @@ async function renderReports() {
           <label class="form-label small">תלמיד</label>
           <select id="r-student" class="form-select form-select-sm">
             <option value="">כל התלמידים</option>
-            ${data.students.map(s => `<option value="${s['מזהה']}">${s['שם פרטי']||''} ${s['שם משפחה']||''}</option>`).join('')}
+            ${data.students.map(s => `<option value="${escHtml(s['מזהה'])}">${escHtml((s['שם פרטי']||'') + ' ' + (s['שם משפחה']||''))}</option>`).join('')}
           </select>
         </div>
         <div class="col-md-3">
-          <label class="form-label small">מחזור</label>
+          <label class="form-label small">כיתה</label>
           <select id="r-cycle" class="form-select form-select-sm">
-            <option value="">כל המחזורים</option>
-            ${cycles.map(c => `<option value="${c}">${c}</option>`).join('')}
+            <option value="">כל הכיתות</option>
+            ${cycles.map(c => `<option value="${escHtml(c)}">${escHtml(c)}</option>`).join('')}
           </select>
         </div>
         <div class="col-md-3">
           <label class="form-label small">קטגוריית התנהגות</label>
           <select id="r-cat" class="form-select form-select-sm">
             <option value="">כל הקטגוריות</option>
-            ${cats.map(c => `<option value="${c}">${c}</option>`).join('')}
+            ${cats.map(c => `<option value="${escHtml(c)}">${escHtml(c)}</option>`).join('')}
           </select>
         </div>
         <div class="col-md-3">
           <label class="form-label small">חומרה</label>
           <select id="r-sev" class="form-select form-select-sm">
             <option value="">כל החומרות</option>
-            ${sevs.map(s => `<option value="${s}">${s}</option>`).join('')}
+            ${sevs.map(s => `<option value="${escHtml(s)}">${escHtml(s)}</option>`).join('')}
           </select>
         </div>
         <div class="col-md-3">
@@ -487,10 +487,10 @@ function drawReportResults() {
     </div>`;
 
   if (_filteredStudents.length) {
-    html += '<div class="card p-3 mb-3"><h6><i class="bi bi-people"></i> תלמידים</h6><table class="table table-sm"><thead><tr><th>שם</th><th>מחזור</th><th>טלפון אם</th><th>אירועים</th></tr></thead><tbody>';
+    html += '<div class="card p-3 mb-3"><h6><i class="bi bi-people"></i> תלמידים</h6><table class="table table-sm"><thead><tr><th>שם</th><th>כיתה</th><th>טלפון אם</th><th>אירועים</th></tr></thead><tbody>';
     _filteredStudents.forEach(s => {
       const cnt = _filteredEvents.filter(e => String(e['תלמיד_מזהה']) === String(s['מזהה'])).length;
-      html += `<tr><td><strong>${s['שם פרטי']||''} ${s['שם משפחה']||''}</strong></td><td>${s['מחזור']||''}</td><td>${s['טלפון אם']||''}</td><td><span class="badge bg-secondary">${cnt}</span></td></tr>`;
+      html += `<tr><td><strong>${escHtml((s['שם פרטי']||'') + ' ' + (s['שם משפחה']||''))}</strong></td><td>${escHtml(s['מחזור']||'')}</td><td>${escHtml(s['טלפון אם']||'')}</td><td><span class="badge bg-secondary">${cnt}</span></td></tr>`;
     });
     html += '</tbody></table></div>';
   }
@@ -559,13 +559,14 @@ td{padding:6px 8px;border:1px solid #e5e7eb}
 @media print{.print-btn{display:none}}
 </style></head><body>
 <button class="print-btn" onclick="window.print()" style="background:#0066cc;color:#fff;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;margin-bottom:20px">🖨 הדפס</button>
-<h1>דוח חדר מעלה עמוס - ${today}</h1>
+<h1>דוח תלמוד תורה מעלה עמוס - ${escHtml(today)}</h1>
 <p>תלמידים: ${_filteredStudents.length} · אירועים: ${_filteredEvents.length}</p>
-${_filteredStudents.length ? `<h2>תלמידים</h2><table><tr><th>שם</th><th>גיל</th><th>מחזור</th><th>טלפון</th></tr>${_filteredStudents.map(s=>`<tr><td>${s['שם פרטי']||''} ${s['שם משפחה']||''}</td><td>${s['גיל']||''}</td><td>${s['מחזור']||''}</td><td>${s['טלפון אם']||''}</td></tr>`).join('')}</table>` : ''}
-${_filteredEvents.length ? `<h2>אירועי התנהגות</h2>${_filteredEvents.map(e=>{const c=e['חומרה']==='גבוהה'?'high':e['חומרה']==='נמוכה'?'low':'mid';return `<div class="event ${c}"><strong>${e['שם תלמיד']||''}</strong> · ${e['קטגוריה']||''} · ${new Date(e['תאריך']).toLocaleString('he-IL')}<br>${e['תיאור']||''}</div>`}).join('')}` : ''}
+${_filteredStudents.length ? `<h2>תלמידים</h2><table><tr><th>שם</th><th>גיל</th><th>כיתה</th><th>טלפון</th></tr>${_filteredStudents.map(s=>`<tr><td>${escHtml((s['שם פרטי']||'') + ' ' + (s['שם משפחה']||''))}</td><td>${escHtml(s['גיל']||'')}</td><td>${escHtml(s['מחזור']||'')}</td><td>${escHtml(s['טלפון אם']||'')}</td></tr>`).join('')}</table>` : ''}
+${_filteredEvents.length ? `<h2>אירועי התנהגות</h2>${_filteredEvents.map(e=>{const c=e['חומרה']==='גבוהה'?'high':e['חומרה']==='נמוכה'?'low':'mid';const rep=e['דווח_עי']?` · דווח ע"י ${escHtml(e['דווח_עי'])}`:'';return `<div class="event ${c}"><strong>${escHtml(e['שם תלמיד']||'')}</strong> · ${escHtml(e['קטגוריה']||'')} · ${escHtml(new Date(e['תאריך']).toLocaleString('he-IL'))}${rep}<br>${escHtml(e['תיאור']||'')}</div>`}).join('')}` : ''}
 <script>setTimeout(()=>window.print(), 500);</script>
 </body></html>`;
   const w = window.open('', '_blank');
+  if (!w) { alert('הדפדפן חוסם חלונות פופ-אפ — אפשר חלון פופ-אפ לאתר ונסה שוב'); return; }
   w.document.write(html);
   w.document.close();
 }
@@ -583,11 +584,11 @@ function generateReport(type) {
     title = 'מעקב התנהגות';
     content = renderBehaviorReport(data.behavior, data.students);
   } else {
-    title = 'דוח מלא - חדר מעלה עמוס';
+    title = 'דוח מלא - תלמוד תורה מעלה עמוס';
     content = renderStudentsReport(data.students) + '<div style="page-break-after:always"></div>' + renderBehaviorReport(data.behavior, data.students);
   }
 
-  const html = `<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="utf-8"><title>${title}</title>
+  const html = `<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="utf-8"><title>${escHtml(title)}</title>
 <style>
 @page{size:A4;margin:1.5cm}
 body{font-family:Arial,'Heebo',sans-serif;direction:rtl;color:#1f2937;padding:0}
@@ -614,14 +615,15 @@ tr:nth-child(even) td{background:#fafafa}
 </style></head><body>
 <button class="print-btn" onclick="window.print()">🖨 הדפס/שמור PDF</button>
 <div class="header">
-  <h1>${title}</h1>
-  <div class="subtitle">חדר מעלה עמוס · הופק ב-${today} בשעה ${time}</div>
+  <h1>${escHtml(title)}</h1>
+  <div class="subtitle">תלמוד תורה מעלה עמוס · הופק ב-${escHtml(today)} בשעה ${escHtml(time)}</div>
 </div>
 ${content}
 <script>setTimeout(()=>window.print(), 500);</script>
 </body></html>`;
 
   const w = window.open('', '_blank');
+  if (!w) { alert('הדפדפן חוסם חלונות פופ-אפ — אפשר חלון פופ-אפ לאתר ונסה שוב'); return; }
   w.document.write(html);
   w.document.close();
 }
@@ -632,18 +634,18 @@ function renderStudentsReport(students) {
     <div class="stat"><div class="stat-num">${students.length}</div><div class="stat-label">תלמידים</div></div>
     <div class="stat"><div class="stat-num">${new Set(students.map(s=>s['מחזור'])).size}</div><div class="stat-label">מחזורים</div></div>
   </div>`;
-  let table = '<table><thead><tr><th>מזהה</th><th>שם מלא</th><th>גיל</th><th>מחזור</th><th>שם אם</th><th>טלפון אם</th><th>שם אב</th><th>טלפון אב</th><th>כתובת</th></tr></thead><tbody>';
+  let table = '<table><thead><tr><th>מזהה</th><th>שם מלא</th><th>גיל</th><th>כיתה</th><th>שם אם</th><th>טלפון אם</th><th>שם אב</th><th>טלפון אב</th><th>כתובת</th></tr></thead><tbody>';
   students.forEach(s => {
     table += `<tr>
-      <td>${s['מזהה']||''}</td>
-      <td><strong>${s['שם פרטי']||''} ${s['שם משפחה']||''}</strong></td>
-      <td>${s['גיל']||''}</td>
-      <td>${s['מחזור']||''}</td>
-      <td>${s['שם אם']||''}</td>
-      <td>${s['טלפון אם']||''}</td>
-      <td>${s['שם אב']||''}</td>
-      <td>${s['טלפון אב']||''}</td>
-      <td>${s['כתובת']||''}</td>
+      <td>${escHtml(s['מזהה']||'')}</td>
+      <td><strong>${escHtml((s['שם פרטי']||'') + ' ' + (s['שם משפחה']||''))}</strong></td>
+      <td>${escHtml(s['גיל']||'')}</td>
+      <td>${escHtml(s['מחזור']||'')}</td>
+      <td>${escHtml(s['שם אם']||'')}</td>
+      <td>${escHtml(s['טלפון אם']||'')}</td>
+      <td>${escHtml(s['שם אב']||'')}</td>
+      <td>${escHtml(s['טלפון אב']||'')}</td>
+      <td>${escHtml(s['כתובת']||'')}</td>
     </tr>`;
   });
   table += '</tbody></table>';

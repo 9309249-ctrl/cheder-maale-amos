@@ -119,8 +119,8 @@ function drawRecentActivity(events) {
     const sev = e['חומרה'] === 'גבוהה' ? 'text-danger' : e['חומרה'] === 'נמוכה' ? 'text-success' : 'text-warning';
     const date = e['תאריך'] ? new Date(e['תאריך']).toLocaleDateString('he-IL') : '';
     return `<div class="d-flex justify-content-between border-bottom py-2 small">
-      <div><i class="bi bi-circle-fill ${sev}" style="font-size:.6rem"></i> <strong>${e['שם תלמיד']||''}</strong> · ${e['קטגוריה']||''}</div>
-      <div class="text-muted">${date}</div>
+      <div><i class="bi bi-circle-fill ${sev}" style="font-size:.6rem"></i> <strong>${escHtml(e['שם תלמיד']||'')}</strong> · ${escHtml(e['קטגוריה']||'')}</div>
+      <div class="text-muted">${escHtml(date)}</div>
     </div>`;
   }).join('');
 }
@@ -168,4 +168,10 @@ function filterByPermissions(){
       tile.parentElement.style.display = '';
     }
   });
+  // If user is currently viewing a page they no longer have permission for, redirect home
+  const currentHash = location.hash.replace('#','');
+  if (currentHash && permissions[currentHash] && !hasPermission(currentHash)) {
+    showPage('home');
+    history.replaceState({page:'home'}, '', '#home');
+  }
 }
