@@ -82,7 +82,7 @@ function toast(msg, type) {
 window.notify = toast;
 
 let currentUser = null;
-const PAGES = ['login','home','students','behavior','reading','functioning','tests','medications','classview','attendance','calendar','meetings','conversations','settings','reports'];
+const PAGES = ['login','home','students','behavior','reading','functioning','tests','medications','classview','attendance','calendar','meetings','conversations','settings','reports','feedback'];
 
 function showPage(name) {
   PAGES.forEach(p => {
@@ -101,6 +101,7 @@ function showPage(name) {
   if (name === 'conversations' && typeof renderConversations === 'function') renderConversations();
   if (name === 'settings' && typeof renderSettings === 'function') renderSettings();
   if (name === 'reports' && typeof renderReports === 'function') renderReports();
+  if (name === 'feedback' && typeof renderFeedback === 'function') renderFeedback();
 }
 
 function goto(page) {
@@ -507,13 +508,23 @@ function filterByPermissions(){
     'conversations': ['conversations','all'],
     'settings': ['settings','all'],
     'reports': ['reports','all'],
+    'feedback': ['all'],   // admin-only
   };
+  const isAdmin = currentUser && (currentUser.role === 'מנהל' || currentUser.permissions === 'all');
+  // Show admin-only-tile elements only for admin
+  document.querySelectorAll('.admin-only-tile').forEach(el => {
+    el.style.display = isAdmin ? '' : 'none';
+  });
   const tiles = document.querySelectorAll('.card-tile');
   tiles.forEach(tile => {
     const onclick = tile.getAttribute('onclick') || '';
     const m = onclick.match(/goto\('([a-z]+)'\)/);
     if (!m) return;
     const area = m[1];
+    if (area === 'feedback') {
+      // Already handled above via admin-only-tile parent
+      return;
+    }
     if (!hasPermission(area)) {
       tile.parentElement.style.display = 'none';
     } else {

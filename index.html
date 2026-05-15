@@ -140,6 +140,13 @@
           <p class="text-muted small mb-0">ייצוא PDF מעוצב</p>
         </div>
       </div>
+      <div class="col-md-6 col-lg-3 admin-only-tile" style="display:none">
+        <div class="card card-tile border-warning" onclick="goto('feedback')">
+          <i class="bi bi-megaphone fs-1 text-warning"></i>
+          <h5 class="mt-2">📮 בקשות תיקון</h5>
+          <p class="text-muted small mb-0">שלח באג / רעיון לסוכן</p>
+        </div>
+      </div>
     </div>
 
     <div class="card p-3 mt-4">
@@ -203,6 +210,7 @@
     </div>
   </div>
 
+  <div id="page-feedback" class="d-none"></div>
   <div id="page-students" class="d-none"></div>
   <div id="page-behavior" class="d-none"></div>
   <div id="page-reading" class="d-none"></div>
@@ -240,6 +248,7 @@
 <script src="js/calendar.js"></script>
 <script src="js/search.js"></script>
 <script src="js/reports.js"></script>
+<script src="js/feedback.js"></script>
 <script src="js/settings.js"></script>
 </body>
 </html>
