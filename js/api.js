@@ -25,8 +25,7 @@ async function verifyPassword(stored, attempt) {
     return (await hashPassword(attempt)) === stored;
   }
   // Backward compat: plain-text stored password (will be migrated on next login).
-  // Refuse the auto-injected default admin/6742 unless online (sheet was reached at least once).
-  if (stored === '6742' && !_online && !_sheetEverReached) return false;
+  // 2026-06-21: removed online-only restriction — Emmanuel needs to login while backend is being restored.
   return String(stored) === String(attempt);
 }
 
