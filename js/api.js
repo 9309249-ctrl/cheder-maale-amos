@@ -2,7 +2,7 @@
 // GitHub Pages hosts only the UI; all data lives in the Sheet.
 
 const STORAGE_KEY = 'cheder_maale_amos_data';
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzhRqTLE4fjjDqrH1we-JlGZ15R-ws8b_gfWF1xF1ewailaiyiS_YXqUhRtb3cQghVt/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzK7LWmXwF1zaOs76wH7JncB19eXr_mfYQol5_k7uZBxq45hOHVIz_FDJPVhOTvF7DksA/exec';
 const AGENT_TOKEN = 'BHT_AGENT_2026';
 const INSTANCE = 'maale-amos';
 const SHEET_URL = 'https://docs.google.com/spreadsheets/d/16rmLPnUyRPpJZ5YF_l74eRUSbRMrlwJXa1ND0drLNjM/edit';
