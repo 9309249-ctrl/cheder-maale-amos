@@ -16,7 +16,7 @@
 <link rel="stylesheet" href="css/dark-mode.css">
 <link rel="stylesheet" href="css/theme.css">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" content="#1e3a8a">
+<meta name="theme-color" content="#8B6B14">
 <meta name="description" content="ניהול תלמוד תורה מעלה עמוס - מעקב התנהגות ותפקוד">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
@@ -39,23 +39,22 @@
 <div class="container">
   <div id="page-login">
     <div class="row justify-content-center">
-      <div class="col-md-6">
-        <div class="card p-4 mt-5">
-          <h3 class="text-center mb-4">כניסה למערכת</h3>
-          <div class="mb-3">
-            <label class="form-label">שם משתמש</label>
-            <input id="username" class="form-control" placeholder="admin" autocomplete="username">
-          </div>
-          <div class="mb-3">
-            <label class="form-label">סיסמה</label>
-            <input id="password" type="password" class="form-control" autocomplete="current-password">
-          </div>
-          <button id="login-btn" class="btn btn-primary w-100">כניסה</button>
-          <div id="login-error" class="alert alert-danger mt-3 d-none"></div>
+      <div class="col-md-5">
+        <div class="card p-4 mt-5 text-center shadow-lg border-0" style="border-radius:18px">
+          <img src="img/logo.png" alt="לוגו תלמוד תורה מעלה עמוס" style="width:140px;margin:0 auto 1.2rem;display:block">
+          <h4 class="fw-bold mb-1" style="font-family:'Frank Ruhl Libre',serif;color:#8B6B14">תלמוד תורה מעלה עמוס</h4>
+          <p class="text-muted mb-4">מערכת ניהול</p>
+          <p class="mb-3 small text-muted">כניסה באמצעות חשבון Google מורשה</p>
+          <div id="google-signin-div" class="d-flex justify-content-center mb-3"></div>
+          <div id="login-error" class="alert alert-danger mt-2 d-none"></div>
+          <p class="mt-3 small text-muted">לא רשום? פנה למנהל המערכת</p>
         </div>
       </div>
     </div>
   </div>
+
+  <!-- דף שכר לימוד -->
+  <div id="page-tuition" class="d-none"></div>
 
   <div id="page-home" class="d-none">
     <div class="row g-3 mt-2">
@@ -153,8 +152,15 @@
       <div class="col-md-6 col-lg-3 admin-only-tile" style="display:none">
         <div class="card card-tile border-warning" onclick="goto('feedback')">
           <i class="bi bi-megaphone fs-1 text-warning"></i>
-          <h5 class="mt-2">📮 בקשות תיקון</h5>
+          <h5 class="mt-2">בקשות תיקון</h5>
           <p class="text-muted small mb-0">שלח באג / רעיון לסוכן</p>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-3 admin-only-tile" style="display:none">
+        <div class="card card-tile border-success" onclick="goto('tuition')">
+          <i class="bi bi-cash-coin fs-1 text-success"></i>
+          <h5 class="mt-2">שכר לימוד</h5>
+          <p class="text-muted small mb-0">גבייה ותשלומים</p>
         </div>
       </div>
     </div>
@@ -285,5 +291,6 @@
 <script src="js/behavior-enhancements.js"></script>
 <script src="js/forms-manager.js"></script>
 <script src="js/forms-matrix.js"></script>
+<script src="js/tuition.js"></script>
 </body>
 </html>

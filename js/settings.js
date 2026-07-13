@@ -29,6 +29,21 @@ async function renderSettings() {
         <i class="bi bi-arrow-up-square"></i> מעבר לשנה הבאה (כל התלמידים)
       </button>
     </div>
+    <div class="card p-3 mb-3 border-warning">
+      <h5><i class="bi bi-github"></i> חיבור GitHub (שמירת נתונים)</h5>
+      <p class="text-muted small mb-2">הנתונים נשמרים ב-GitHub. הזן טוקן כתיבה (Personal Access Token) כדי לאפשר שמירה.</p>
+      <div class="input-group mb-2">
+        <input type="password" id="gh-token-input" class="form-control" placeholder="ghp_..." value="${localStorage.getItem('gh_write_token')||''}">
+        <button class="btn btn-warning" onclick="saveGHToken(document.getElementById('gh-token-input').value)">שמור טוקן</button>
+      </div>
+      <div class="mb-2">
+        <label class="form-label small">שכ"ל חודשי (₪) — לחישוב סטטיסטיקה</label>
+        <input type="number" id="monthly-fee-input" class="form-control form-control-sm" style="max-width:150px" value="${localStorage.getItem('monthly_fee')||''}" placeholder="0">
+        <button class="btn btn-sm btn-outline-primary mt-1" onclick="localStorage.setItem('monthly_fee',document.getElementById('monthly-fee-input').value);notify('נשמר','success')">שמור</button>
+      </div>
+      <button class="btn btn-sm btn-outline-secondary" onclick="pullNow()"><i class="bi bi-arrow-clockwise me-1"></i>רענן נתונים מ-GitHub</button>
+    </div>
+    </div>
     <div class="card p-3 mb-3">
       <h5><i class="bi bi-tags"></i> קטגוריות התנהגות</h5>
       <p class="text-muted small mb-2">הקטגוריות שמופיעות בטופס דיווח אירוע</p>

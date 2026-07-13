@@ -1,9 +1,9 @@
 :root{
-  --primary:#1e3a8a;
-  --primary-2:#0c4a6e;
-  --primary-dark:#0f1d54;
-  --accent:#0891b2;
-  --gold:#b45309;
+  --primary:#8B6B14;
+  --primary-2:#6d5310;
+  --primary-dark:#4a390b;
+  --accent:#c9a227;
+  --gold:#8B6B14;
   --success:#15803d;
   --warning:#d97706;
   --danger:#b91c1c;
@@ -66,7 +66,7 @@ h6{font-size:.95rem;color:var(--text);font-family:'Heebo',sans-serif;font-weight
 
 /* Navbar - elegant institutional gradient */
 .navbar{
-  background:linear-gradient(115deg,#0f1d54 0%,#1e3a8a 45%,#0c4a6e 100%)!important;
+  background:linear-gradient(115deg,#3d2e08 0%,#8B6B14 45%,#5a4210 100%)!important;
   color:#fff;
   padding:.85rem 0;
   box-shadow:0 8px 32px rgba(15,29,84,.18);

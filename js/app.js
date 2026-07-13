@@ -82,7 +82,7 @@ function toast(msg, type) {
 window.notify = toast;
 
 let currentUser = null;
-const PAGES = ['login','home','students','behavior','reading','functioning','tests','medications','classview','attendance','calendar','meetings','conversations','settings','reports','feedback'];
+const PAGES = ['login','home','students','behavior','reading','functioning','tests','medications','classview','attendance','calendar','meetings','conversations','settings','reports','feedback','tuition'];
 
 function showPage(name) {
   PAGES.forEach(p => {
@@ -102,6 +102,7 @@ function showPage(name) {
   if (name === 'settings' && typeof renderSettings === 'function') renderSettings();
   if (name === 'reports' && typeof renderReports === 'function') renderReports();
   if (name === 'feedback' && typeof renderFeedback === 'function') renderFeedback();
+  if (name === 'tuition' && typeof renderTuition === 'function') renderTuition();
 }
 
 function goto(page) {
@@ -146,31 +147,34 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-async function doLogin(){
-  const u = document.getElementById('username').value.trim();
-  const p = document.getElementById('password').value;
-  if (!u || !p) return;
-  const r = await api('authenticate', [u, p]);
-  if (r.ok && r.data && r.data.ok) {
-    resetModuleState();  // Round-6 fix: clear stale UI state from previous user
-    currentUser = r.data.user;
-    // Augment with permissions from users array
-    const userRow = (await api('listUsers',[])).data.find(x=>x['שם משתמש']===u);
-    if (userRow) currentUser.permissions = userRow['הרשאות'] || '';
-    sessionStorage.setItem('user', JSON.stringify(currentUser));
-    document.getElementById('user-info').innerHTML = escHtml(currentUser.username) + ' (' + escHtml(currentUser.role||'') + ') <button class="btn btn-sm btn-outline-light ms-2" onclick="logout()">יציאה</button>';
-    showPage('home');
-    loadStats();
-    filterByPermissions();
-  } else {
-    const err = document.getElementById('login-error');
-    err.textContent = (r.data && r.data.error) || r.error || 'שגיאה';
-    err.classList.remove('d-none');
-  }
-}
+// Called after successful Google Sign-In (from api.js handleGoogleCredential)
+window.onLoginSuccess = function() {
+  resetModuleState();
+  currentUser = JSON.parse(sessionStorage.getItem('user') || '{}');
+  const pic = currentUser.picture
+    ? `<img src="${escHtml(currentUser.picture)}" class="rounded-circle me-1" style="width:24px;height:24px;object-fit:cover">`
+    : '';
+  document.getElementById('user-info').innerHTML =
+    pic + escHtml(currentUser.name || currentUser.username) +
+    ' <button class="btn btn-sm btn-outline-light ms-2" onclick="logout()">יציאה</button>';
+  showPage('home');
+  loadStats();
+  filterByPermissions();
+};
 
-document.getElementById('login-btn').onclick = doLogin;
-document.getElementById('password').addEventListener('keypress', e => { if(e.key==='Enter') doLogin(); });
+// Auto-login from existing session
+(function checkSession() {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem('user') || '{}');
+    if (saved && saved.username) {
+      window.onLoginSuccess();
+      return;
+    }
+  } catch {}
+  // Init Google Sign-In
+  if (typeof initGoogleSignIn === 'function') initGoogleSignIn();
+  else window.addEventListener('load', () => { if (typeof initGoogleSignIn === 'function') initGoogleSignIn(); });
+})();
 
 function showLoadingOverlay(text) {
   let el = document.getElementById('loading-overlay');
