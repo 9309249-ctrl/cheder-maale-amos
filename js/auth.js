@@ -82,7 +82,8 @@
     const caps = roleCaps(u.role);
     // הרשאות מסך: אם המנהל הגדיר perms פרטניות למשתמש — הן גוברות; אחרת ברירת-מחדל לפי התפקיד
     A.perms = (u.perms && u.perms.length) ? u.perms : caps.perms;
-    A.mode = caps.mode;                // full / readonly / writeonly
+    // רמת גישה: אם המנהל הגדיר למשתמש override (full/readonly/writeonly) — גובר על ברירת-המחדל של התפקיד
+    A.mode = (u.access_mode && ['full', 'readonly', 'writeonly'].includes(u.access_mode)) ? u.access_mode : caps.mode;
     A.scope = null;                    // null = הכל; מערך = כיתות מורשות
     if (caps.scoped && window.store) {
       try { const acc = await window.store.list('user_class_access', { eq: { user_id: u.id } }); A.scope = acc.map(x => x.class_id); } catch (_) { A.scope = []; }
@@ -154,12 +155,12 @@
   }
 
   async function loadProfile(user) {
-    let role = 'צוות', name = user.email, perms = null;
+    let role = 'צוות', name = user.email, perms = null, access_mode = null;
     try {
       const { data } = await window.sb.from('profiles').select('*').eq('id', user.id).single();
-      if (data) { role = data.role || 'צוות'; name = data.name || user.email; perms = data.perms || null; }
+      if (data) { role = data.role || 'צוות'; name = data.name || user.email; perms = data.perms || null; access_mode = data.access_mode || null; }
     } catch (_) {}
-    setUser({ id: user.id, email: user.email, name, role, perms });
+    setUser({ id: user.id, email: user.email, name, role, perms, access_mode });
   }
 
   async function init() {

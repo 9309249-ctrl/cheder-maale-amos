@@ -144,3 +144,6 @@ $$ begin
   return true;
 end $$;
 grant execute on function public.submit_general(bigint, text, jsonb, text) to anon, authenticated;
+
+-- v5 (2026-07-21): רמת גישה פר-משתמש (override על ברירת המחדל של התפקיד)
+alter table public.profiles add column if not exists access_mode text;   -- null / full / readonly / writeonly

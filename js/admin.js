@@ -96,6 +96,9 @@
           '<label class="fld"><span>תפקיד</span><select class="inp mb0" id="u_role">' +
             ['מנהל', 'מחנך', 'מלמד', 'מפקח', 'מזכירה'].map(r => '<option' + ((u.role === r || (!u.role && r === 'מחנך')) ? ' selected' : '') + '>' + r + '</option>').join('') +
             '</select></label>' +
+          '<label class="fld"><span>רמת גישה <small style="font-weight:400;color:var(--muted)">— מה מותר לו לעשות</small></span><select class="inp mb0" id="u_mode">' +
+            [['', 'ברירת מחדל (לפי תפקיד)'], ['full', 'גישה מלאה — צפייה + עריכה'], ['readonly', 'צפייה בלבד — בלי לערוך'], ['writeonly', 'הזנה בלבד — בלי לצפות']].map(o => '<option value="' + o[0] + '"' + (((u.access_mode || '') === o[0]) ? ' selected' : '') + '>' + o[1] + '</option>').join('') +
+            '</select></label>' +
           '<div class="fld fld-wide"><span>כיתות מורשות</span><div class="cb-grid" id="classGrid">' + (clsBoxes || '<span class="tl-note">אין כיתות — הוסף כיתה קודם</span>') + '</div></div>' +
           '<div class="fld fld-wide"><span>מסכים מורשים <small style="font-weight:400;color:var(--muted)">— מנהל רואה הכל</small></span>' +
             '<div class="cb-grid" id="permGrid">' + permBoxes + '</div>' +
@@ -103,6 +106,7 @@
           '</div>',
         onSave: async (mel) => {
           const name = mel.querySelector('#u_name').value.trim(), phone = mel.querySelector('#u_phone').value.trim(), pw = mel.querySelector('#u_pw').value, role = mel.querySelector('#u_role').value;
+          const access_mode = mel.querySelector('#u_mode').value || null;   // null = ברירת מחדל לפי תפקיד
           if (!name || !phone) { window.UI.toast('שם וטלפון חובה', 'err'); return false; }
           const chosenPerms = [...mel.querySelectorAll('#permGrid input:checked')].map(c => c.value);
           const allIds = assignable.map(m => m.id);
@@ -112,13 +116,13 @@
           let uid;
           if (!LIVE) {
             // ── מצב הדגמה: טבלת users בזיכרון ──
-            const row = { name, phone, role, perms, password: pw || phone };
+            const row = { name, phone, role, perms, access_mode, password: pw || phone };
             if (existing) { await window.store.update('users', u.id, row); Object.assign(u, row); uid = u.id; }
             else { const r = await window.store.add('users', row); const nu = (r.data && r.data[0]) || Object.assign({ id: Date.now() }, row); uid = nu.id; users.push(nu); }
           } else if (existing) {
             // ── חי: עדכון פרופיל קיים (שם/תפקיד/הרשאות) ──
-            await window.store.update('profiles', u.id, { name, role, tz: phone, perms });
-            Object.assign(u, { name, role, tz: phone, perms }); uid = u.id;
+            await window.store.update('profiles', u.id, { name, role, tz: phone, perms, access_mode });
+            Object.assign(u, { name, role, tz: phone, perms, access_mode }); uid = u.id;
           } else {
             // ── חי: יצירת משתמש אמיתי דרך Supabase Auth (client זמני שלא נוגע בסשן המנהל) ──
             const C = window.CV3 || {};
@@ -131,9 +135,9 @@
             uid = data && data.user && data.user.id;
             if (!uid) { window.UI.toast('המשתמש לא נוצר (אולי המספר כבר קיים)', 'err'); return false; }
             await new Promise(r => setTimeout(r, 500));   // המתנה לטריגר שיוצר את הפרופיל
-            const upd = await window.store.update('profiles', uid, { name, role, tz: phone, perms });
+            const upd = await window.store.update('profiles', uid, { name, role, tz: phone, perms, access_mode });
             if (upd && upd.ok === false) { window.UI.toast('המשתמש נוצר אך עדכון הפרופיל נכשל: ' + (upd.error || ''), 'err'); }
-            users.push({ id: uid, name, phone, tz: phone, role, perms });
+            users.push({ id: uid, name, phone, tz: phone, role, perms, access_mode });
           }
           const chosen = [...mel.querySelectorAll('#classGrid input:checked')].map(c => Number(c.value));
           for (const a of access.filter(a => a.user_id == uid)) await window.store.remove('user_class_access', a.id);
