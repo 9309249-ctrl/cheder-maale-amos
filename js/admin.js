@@ -175,19 +175,35 @@
         '<input class="inp mb0" id="tNote" placeholder="הערה (רשות)">' +
         '<button class="btn-primary sm" id="tSave"><i class="bi bi-plus-lg"></i> הוסף</button>' +
       '</div></div>' +
-      '<div class="toolbar" style="grid-template-columns:auto 1fr"><select class="inp mb0" id="tClsF"><option value="">כל הכיתות</option>' + clsFilter + '</select><span class="count-line" id="tSum" style="align-self:center"></span></div>' +
+      '<div class="toolbar" style="grid-template-columns:auto auto 1fr"><select class="inp mb0" id="tClsF"><option value="">כל הכיתות</option>' + clsFilter + '</select>' +
+        '<select class="inp mb0" id="tGroup" title="תצוגה לפי"><option value="">ללא קיבוץ</option><option value="student">לפי תלמיד</option><option value="class">לפי כיתה</option><option value="status">לפי סטטוס</option></select>' +
+        '<span class="count-line" id="tSum" style="align-self:center"></span></div>' +
       '<div class="table-wrap"><table class="tbl"><thead><tr><th>תלמיד</th><th>כיתה</th><th>חודש</th><th>תאריך</th><th>סכום</th><th>אמצעי</th><th>סטטוס</th><th>הערה</th><th></th></tr></thead><tbody id="tBody"></tbody></table></div>';
     const pick = window.cv3Picker.wire(page, 'tui');
     const rows = () => { const cf = page.querySelector('#tClsF').value; return tuition.filter(t => !cf || String((studs.find(s => s.id == t.student_id) || {}).class_id) === cf); };
+    const rowHtml = t =>
+      '<tr><td>' + esc(nameOf(t.student_id)) + '</td><td>' + esc(clsOf(t.student_id)) + '</td><td>' + esc(t.month || '') + '</td><td>' + esc(t.pay_date || '') + '</td>' +
+      '<td>' + (t.amount ? '₪' + esc(t.amount) : '') + '</td><td>' + esc(t.method || '') + '</td>' +
+      '<td><button class="chip ' + (t.status === 'paid' ? 'ok' : 'off') + '" data-tog="' + t.id + '">' + (t.status === 'paid' ? 'שולם' : 'חוב') + '</button></td>' +
+      '<td>' + esc(t.note || '') + '</td>' +
+      '<td class="row-act"><button class="mini danger" data-del="' + t.id + '"><i class="bi bi-trash"></i></button></td></tr>';
+    const gKey = (t, g) => g === 'student' ? nameOf(t.student_id) : g === 'class' ? (clsOf(t.student_id) || 'ללא כיתה') : (t.status === 'paid' ? 'שולם' : 'חוב');
     function draw() {
       const rs = rows();
-      page.querySelector('#tBody').innerHTML = rs.map(t =>
-        '<tr><td>' + esc(nameOf(t.student_id)) + '</td><td>' + esc(clsOf(t.student_id)) + '</td><td>' + esc(t.month || '') + '</td><td>' + esc(t.pay_date || '') + '</td>' +
-        '<td>' + (t.amount ? '₪' + esc(t.amount) : '') + '</td><td>' + esc(t.method || '') + '</td>' +
-        '<td><button class="chip ' + (t.status === 'paid' ? 'ok' : 'off') + '" data-tog="' + t.id + '">' + (t.status === 'paid' ? 'שולם' : 'חוב') + '</button></td>' +
-        '<td>' + esc(t.note || '') + '</td>' +
-        '<td class="row-act"><button class="mini danger" data-del="' + t.id + '"><i class="bi bi-trash"></i></button></td></tr>').join('') ||
-        '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px">אין רישומים</td></tr>';
+      const g = page.querySelector('#tGroup').value;
+      let html;
+      if (!g) { html = rs.map(rowHtml).join(''); }
+      else {
+        const groups = {};
+        rs.forEach(t => { const k = gKey(t, g); (groups[k] = groups[k] || []).push(t); });
+        html = Object.keys(groups).sort((a, b) => a.localeCompare(b, 'he')).map(k => {
+          const sum = groups[k].reduce((s, t) => s + (Number(t.amount) || 0), 0);
+          return '<tr class="grp-hdr"><td colspan="9" style="background:var(--bg2,#f1f4f8);font-weight:700;padding:8px 10px">' +
+            esc(k) + ' <span style="color:var(--muted);font-weight:400">(' + groups[k].length + ' · ₪' + sum + ')</span></td></tr>' +
+            groups[k].map(rowHtml).join('');
+        }).join('');
+      }
+      page.querySelector('#tBody').innerHTML = html || '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px">אין רישומים</td></tr>';
       const paid = rs.filter(t => t.status === 'paid').reduce((s, t) => s + (Number(t.amount) || 0), 0);
       const due = rs.filter(t => t.status !== 'paid').reduce((s, t) => s + (Number(t.amount) || 0), 0);
       page.querySelector('#tSum').textContent = 'שולם ₪' + paid + ' · חוב ₪' + due + ' · ' + rs.length + ' רישומים';
@@ -203,6 +219,7 @@
       draw(); window.UI.toast('נוסף');
     });
     page.querySelector('#tClsF').addEventListener('change', draw);
+    page.querySelector('#tGroup').addEventListener('change', draw);
     page.querySelector('#tCsv').addEventListener('click', () => {
       const head = ['תלמיד', 'כיתה', 'חודש', 'תאריך תשלום', 'סכום', 'אמצעי', 'סטטוס', 'הערה'];
       const lines = [head.join(',')].concat(rows().map(t => [nameOf(t.student_id), clsOf(t.student_id), t.month, t.pay_date, t.amount, t.method, t.status === 'paid' ? 'שולם' : 'חוב', t.note].map(v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(',')));

@@ -41,7 +41,7 @@
       function draw() {
         page.querySelector('#recList').innerHTML = data.slice().reverse().map(x =>
           '<div class="tl-item"><span class="sev-dot mid"></span><div class="tl-main"><strong>' + esc(nameOf(x.student_id)) + '</strong> · ' +
-          cfg.fields.map(f => esc(x[f.k])).filter(Boolean).join(' · ') + '</div><div class="tl-meta">' + esc(x.date || x.event_date || today()) + '</div>' +
+          cfg.fields.map(f => esc(x[f.k])).filter(Boolean).join(' · ') + '</div><div class="tl-meta">' + esc(x[cfg.dateField || 'date'] || x.date || x.event_date || '') + '</div>' +
           '<button class="mini danger" data-del="' + x.id + '"><i class="bi bi-trash"></i></button></div>').join('');
         page.querySelector('#recEmpty').hidden = data.length > 0;
         page.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', async () => {
@@ -52,7 +52,7 @@
       page.querySelector('#recCsv').addEventListener('click', () => {
         const head = ['תלמיד'].concat(cfg.fields.map(f => f.label)).concat(['תאריך']);
         const lines = [head.join(',')].concat(data.map(x =>
-          [nameOf(x.student_id)].concat(cfg.fields.map(f => x[f.k])).concat([x.date || x.event_date || ''])
+          [nameOf(x.student_id)].concat(cfg.fields.map(f => x[f.k])).concat([x[cfg.dateField || 'date'] || x.date || x.event_date || ''])
             .map(v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(',')));
         const blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
         const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = cfg.table + '.csv'; a.click();
@@ -60,9 +60,11 @@
       page.querySelector('#recSave').addEventListener('click', async () => {
         const sid = pick.value();
         if (!sid) { window.UI.toast('בחר תלמיד', 'err'); return; }
-        const row = { student_id: Number(sid), date: today() };
+        const row = { student_id: Number(sid) };
+        // שם עמודת התאריך משתנה בין טבלאות (test_date/report_date/date); null = אין עמודת תאריך
+        if (cfg.dateField !== null) row[cfg.dateField || 'date'] = today();
         cfg.fields.forEach(f => { row[f.k] = page.querySelector('[data-f="' + f.k + '"]').value.trim(); });
-        const r = await add(cfg.table, row); if (!r.ok) { window.UI.toast('שגיאה', 'err'); return; }
+        const r = await add(cfg.table, row); if (!r.ok) { window.UI.toast('שגיאה בשמירה', 'err'); return; }
         data = data.concat([row]); cfg.fields.forEach(f => page.querySelector('[data-f="' + f.k + '"]').value = '');
         draw(); window.UI.toast('נוסף');
       });
@@ -134,11 +136,11 @@
   }
 
   const R = window.PAGE_RENDERERS = window.PAGE_RENDERERS || {};
-  R.tests = makeRecord({ table: 'tests', title: 'מבחנים', icon: 'bi-card-checklist', fields: [{ k: 'subject', label: 'מקצוע / נושא' }, { k: 'grade', label: 'ציון', type: 'number' }, { k: 'examiner', label: 'שם הבוחן' }] });
+  R.tests = makeRecord({ table: 'tests', title: 'מבחנים', icon: 'bi-card-checklist', dateField: 'test_date', fields: [{ k: 'subject', label: 'מקצוע / נושא' }, { k: 'grade', label: 'ציון', type: 'number' }, { k: 'examiner', label: 'שם הבוחן' }] });
   R.functioning = makeRecord({ table: 'functioning', title: 'ציוני תפקוד', icon: 'bi-bar-chart-line', fields: [{ k: 'area', label: 'תחום' }, { k: 'score', label: 'ציון', type: 'number' }] });
   R.conversations = makeRecord({ table: 'conversations', title: 'שיחות עם תלמידים', icon: 'bi-chat-dots', fields: [{ k: 'summary', label: 'סיכום השיחה', wide: true }] });
   R.meetings = makeRecord({ table: 'meetings', title: 'אסיפות הורים', icon: 'bi-people', fields: [{ k: 'attendees', label: 'משתתפים' }, { k: 'summary', label: 'סיכום', wide: true }] });
-  R.medical = makeRecord({ table: 'medications', title: 'רפואי — אלרגיות ותרופות', icon: 'bi-capsule', restricted: true, fields: [{ k: 'kind', label: 'סוג (אלרגיה/תרופה)' }, { k: 'name', label: 'שם' }, { k: 'details', label: 'פרטים', wide: true }] });
+  R.medical = makeRecord({ table: 'medications', title: 'רפואי — אלרגיות ותרופות', icon: 'bi-capsule', restricted: true, dateField: null, fields: [{ k: 'kind', label: 'סוג (אלרגיה/תרופה)' }, { k: 'name', label: 'שם' }, { k: 'details', label: 'פרטים', wide: true }] });
   R.attendance = renderAttendance;
   R.calendar = renderCalendar;
 })();

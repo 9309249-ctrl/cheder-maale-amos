@@ -15,12 +15,17 @@
   }
   async function insert(table, row) {
     if (DEMO) return { ok: true, demo: true };
-    const { data, error } = await window.sb.from(table).insert(row).select();
+    // id מיוצר ע"י המסד; מחרוזות ריקות לשדות מספריים → null (Postgres דוחה '' ל-numeric)
+    const { id: _i, ...clean } = row || {};
+    for (const k of ['amount', 'grade', 'score']) if (clean[k] === '') clean[k] = null;
+    const { data, error } = await window.sb.from(table).insert(clean).select();
     return { ok: !error, data, error: error && error.message };
   }
   async function update(table, id, patch) {
     if (DEMO) return { ok: true, demo: true };
-    const { data, error } = await window.sb.from(table).update(patch).eq('id', id).select();
+    // id הוא GENERATED ALWAYS IDENTITY — אסור לשלוח אותו ב-patch (Postgres דוחה); גם created_at לא לעדכן
+    const { id: _i, created_at: _c, ...clean } = patch || {};
+    const { data, error } = await window.sb.from(table).update(clean).eq('id', id).select();
     return { ok: !error, data, error: error && error.message };
   }
   async function remove(table, id) {

@@ -22,10 +22,13 @@
   async function addEvent(row) { const r = await window.store.add('behavior_events', row); return { ok: r.ok, data: r.data }; }
   async function delEvent(id) { return window.store.remove('behavior_events', id); }
 
+  async function classes() { return window.cv3Students ? await window.cv3Students.getClasses() : []; }
+
   async function renderBehavior(page) {
-    const [studs, cs, evs] = await Promise.all([students(), cats(), events()]);
+    const [studs, cs, evs, cls] = await Promise.all([students(), cats(), events(), classes()]);
     const nameOf = id => { const s = studs.find(x => x.id == id); return s ? s.name : '—'; };
     const catOf = id => { const c = cs.find(x => x.id == id); return c ? c.name : ''; };
+    const clsOf = sid => { const s = studs.find(x => x.id == sid); const c = s && cls.find(x => x.id == s.class_id); return c ? c.name : 'ללא כיתה'; };
     const catOpts = cs.map(c => '<option value="' + c.id + '">' + esc(c.name) + '</option>').join('');
     const pickAdd = await window.cv3Picker.html('q');
     const pickFilter = await window.cv3Picker.html('f', { placeholder: 'כל התלמידים' });
@@ -44,8 +47,9 @@
           '<input class="inp mb0 fld-wide" id="qNote" placeholder="הערה" style="grid-column:1/-2">' +
           '<button class="btn-primary sm" id="qSave"><i class="bi bi-plus-lg"></i> רישום</button>' +
         '</div></div>' +
-      '<div class="toolbar" style="grid-template-columns:1fr auto auto">' + pickFilter +
+      '<div class="toolbar" style="grid-template-columns:1fr auto auto auto">' + pickFilter +
         '<select class="inp mb0" id="fCat"><option value="">כל הקטגוריות</option>' + catFilterOpts + '</select>' +
+        '<select class="inp mb0" id="fGroup" title="תצוגה לפי"><option value="">ללא קיבוץ</option><option value="student">לפי תלמיד</option><option value="class">לפי כיתה</option><option value="cat">לפי קטגוריה</option></select>' +
         '<span class="count-line" id="evCount" style="align-self:center"></span></div>' +
       '<div id="timeline"></div>' +
       '<div id="evEmpty" class="empty-state" hidden><i class="bi bi-clipboard-check"></i><div>אין דיווחים עדיין — השתמש בדיווח המהיר למעלה</div></div>';
@@ -79,14 +83,26 @@
       const f = fpick.value(), fc = page.querySelector('#fCat').value;
       return list.filter(e => (!f || String(e.student_id) === f) && (!fc || String(e.category_id) === fc));
     };
+    const itemHtml = e =>
+      '<div class="tl-item"><span class="sev-dot ' + sevClass(e.severity) + '"></span>' +
+      '<div class="tl-main"><strong>' + esc(nameOf(e.student_id)) + '</strong> · ' + esc(catOf(e.category_id)) +
+      (e.note ? ' <span class="tl-note">— ' + esc(e.note) + '</span>' : '') + '</div>' +
+      '<div class="tl-meta">' + esc(hebDate(e.event_date) || e.event_date) + (e.event_time ? ' · ' + esc(e.event_time) : '') + '</div>' +
+      '<button class="mini danger" data-del="' + e.id + '"><i class="bi bi-trash"></i></button></div>';
+    const groupKey = (e, g) => g === 'student' ? nameOf(e.student_id) : g === 'class' ? clsOf(e.student_id) : catOf(e.category_id) || 'ללא קטגוריה';
     function draw() {
       const rows = filtered();
-      page.querySelector('#timeline').innerHTML = rows.map(e =>
-        '<div class="tl-item"><span class="sev-dot ' + sevClass(e.severity) + '"></span>' +
-        '<div class="tl-main"><strong>' + esc(nameOf(e.student_id)) + '</strong> · ' + esc(catOf(e.category_id)) +
-        (e.note ? ' <span class="tl-note">— ' + esc(e.note) + '</span>' : '') + '</div>' +
-        '<div class="tl-meta">' + esc(hebDate(e.event_date) || e.event_date) + (e.event_time ? ' · ' + esc(e.event_time) : '') + '</div>' +
-        '<button class="mini danger" data-del="' + e.id + '"><i class="bi bi-trash"></i></button></div>').join('');
+      const g = page.querySelector('#fGroup').value;
+      if (!g) {
+        page.querySelector('#timeline').innerHTML = rows.map(itemHtml).join('');
+      } else {
+        const groups = {};
+        rows.forEach(e => { const k = groupKey(e, g); (groups[k] = groups[k] || []).push(e); });
+        page.querySelector('#timeline').innerHTML = Object.keys(groups).sort((a, b) => a.localeCompare(b, 'he'))
+          .map(k => '<div class="group-sec"><h4 class="group-title" style="margin:14px 2px 6px;font-size:.95rem;color:var(--primary-dark)">' +
+            esc(k) + ' <span style="color:var(--muted);font-weight:400">(' + groups[k].length + ')</span></h4>' +
+            groups[k].map(itemHtml).join('') + '</div>').join('');
+      }
       page.querySelector('#evCount').textContent = rows.length + ' דיווחים';
       page.querySelector('#evEmpty').hidden = rows.length > 0;
       page.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', async () => {
@@ -95,6 +111,7 @@
       }));
     }
     page.querySelector('#fCat').addEventListener('change', draw);
+    page.querySelector('#fGroup').addEventListener('change', draw);
     page.querySelector('#behCsv').addEventListener('click', () => {
       const head = ['תלמיד', 'קטגוריה', 'תאריך', 'שעה', 'הערה'];
       const lines = [head.join(',')].concat(filtered().map(e =>
