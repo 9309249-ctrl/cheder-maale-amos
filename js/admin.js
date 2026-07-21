@@ -124,7 +124,9 @@
             const C = window.CV3 || {};
             const tmp = window.supabase.createClient(C.SUPABASE_URL, C.SUPABASE_ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
             const email = phone + '@bht.co.il';
-            const { data, error } = await tmp.auth.signUp({ email, password: pw || phone, options: { data: { name } } });
+            const password = (pw && pw.length >= 6) ? pw : phone;   // Supabase דורש 6+ תווים; ברירת מחדל = הטלפון
+            if (password.length < 6) { window.UI.toast('הטלפון חייב לפחות 6 ספרות (או הזן סיסמה 6+ תווים)', 'err'); return false; }
+            const { data, error } = await tmp.auth.signUp({ email, password, options: { data: { name } } });
             if (error) { window.UI.toast('שגיאה ביצירת משתמש: ' + error.message, 'err'); return false; }
             uid = data && data.user && data.user.id;
             if (!uid) { window.UI.toast('המשתמש לא נוצר (אולי המספר כבר קיים)', 'err'); return false; }
@@ -138,7 +140,7 @@
           for (let i = access.length - 1; i >= 0; i--) if (access[i].user_id == uid) access.splice(i, 1);
           for (const cid of chosen) { const r = await window.store.add('user_class_access', { user_id: uid, class_id: cid }); access.push((r.data && r.data[0]) || { user_id: uid, class_id: cid }); }
           drawUsers();
-          window.UI.toast(existing ? 'המשתמש עודכן' : ('משתמש נוסף — כניסה: ' + phone + ' · סיסמה: ' + (pw || phone)));
+          window.UI.toast(existing ? 'המשתמש עודכן' : ('משתמש נוסף — כניסה: ' + phone + ' · סיסמה: ' + ((pw && pw.length >= 6) ? pw : phone)));
           return true;
         },
       });
