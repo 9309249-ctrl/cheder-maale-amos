@@ -8,7 +8,8 @@ const ASSETS = ['./', 'index.html', 'css/main.css', 'manifest.webmanifest', 'fav
   'js/students.js', 'js/picker.js', 'js/behavior.js', 'js/tracking.js', 'js/dashboard.js',
   'js/admin.js', 'js/cashbox.js', 'js/forms.js', 'js/teacher.js', 'js/tasks.js',
   'js/calendar.js', 'js/staffcard.js', 'js/app.js',
-  'vendor/supabase.js', 'vendor/chart.umd.min.js'];
+  'vendor/supabase.js', 'vendor/chart.umd.min.js',
+  'vendor/heebo.css', 'vendor/bootstrap-icons.css'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).catch(() => {}));
