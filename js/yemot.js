@@ -19,7 +19,9 @@
     try { const b = atob(K_ENC); let s = ''; for (let i = 0; i < b.length; i++) s += String.fromCharCode(b.charCodeAt(i) ^ 0x5A); return s; }
     catch (_) { return ''; }
   }
-  const gKey = () => { try { return localStorage.getItem(GKEY_LS) || defaultKey(); } catch (_) { return defaultKey(); } };
+  // מפתח שמור נחשב רק אם הוא בפורמט תקין (AIza…); אחרת חוזרים למוטמע.
+  // כך קוד שגוי שנשמר בטעות (כמו קוד OAuth) לא שובר את היצירה.
+  const gKey = () => { try { const k = localStorage.getItem(GKEY_LS) || ''; return /^AIza[\w-]{20,}$/.test(k) ? k : defaultKey(); } catch (_) { return defaultKey(); } };
   const setGKey = k => { try { k ? localStorage.setItem(GKEY_LS, k) : localStorage.removeItem(GKEY_LS); } catch (_) {} };
   const SS_KEY = 'cv3_yemot_token';
   const DEFAULT_LINE = '033060570';
@@ -246,11 +248,13 @@
       keyRow.hidden = false;
       const inp = page.querySelector('#ymGKey'); inp.value = ''; inp.focus();
     });
+    // ניקוי מפתח שגוי שנשמר בטעות בעבר (למשל קוד OAuth) — כדי לא לדרוס את המוטמע
+    try { const st = localStorage.getItem(GKEY_LS); if (st && !/^AIza[\w-]{20,}$/.test(st)) setGKey(''); } catch (_) {}
     page.querySelector('#ymGKeySave').addEventListener('click', () => {
       // ניקוי רעשי-הדבקה: רווחים, מרכאות, תווים נסתרים
       const k = page.querySelector('#ymGKey').value.replace(/[\s"'`​-‏]/g, '');
       const msg = page.querySelector('#ymTtsMsg');
-      if (k.length < 20) { msg.textContent = 'המפתח קצר מדי — ודאו שהודבק במלואו.'; return; }
+      if (!/^AIza[\w-]{20,}$/.test(k)) { msg.textContent = 'זה לא מפתח Gemini. מפתח תקין מתחיל ב-AIza. (קוד AQ… הוא לא מפתח.)'; return; }
       setGKey(k); keyRow.hidden = true;
       msg.textContent = '✓ המפתח נשמר. לחצו "צור קול" כדי לבדוק.';
     });
