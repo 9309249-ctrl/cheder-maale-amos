@@ -551,6 +551,13 @@
     } catch (e) { window.UI.toast('לא ניתן להשמיע', 'err'); }
   }
 
+  // חשיפה למודולים אחרים (דיווחים קוליים): המפתח הפעיל + עזרי ימות
+  window.geminiKey = gKey;
+  window.Yemot = {
+    API, token, call,
+    downloadUrl: path => `${API}/DownloadFile?token=${encodeURIComponent(token())}&path=${encodeURIComponent(path)}`
+  };
+
   window.PAGE_RENDERERS = window.PAGE_RENDERERS || {};
   window.PAGE_RENDERERS.yemot = render;
 })();
