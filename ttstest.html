@@ -43,4 +43,19 @@ async function run(){
 }
 document.getElementById('go').addEventListener('click',run);
 run();
+
+// בדיקה שנייה: מריצה את פונקציית הפאנל האמיתית (window.geminiSpeak) מ-yemot.js
+async function run2(){
+  log('\n=== בדיקה 2: הפונקציה האמיתית של הפאנל ===');
+  if(typeof window.geminiSpeak!=='function'){ log('✗ geminiSpeak לא נטענה (yemot.js)','err'); return; }
+  log('geminiKey מהפאנל: '+((window.geminiKey&&window.geminiKey()||'').slice(0,6))+'… ('+((window.geminiKey&&window.geminiKey()||'').length)+')');
+  const texts=['שלום, בדיקה קצרה','שלום, הגעתם לתלמוד תורה מעלה עמוס. נא להשאיר הודעה'];
+  for(const t of texts){
+    try{ const blob=await window.geminiSpeak(t, window.geminiKey()); log('✓ "'+t.slice(0,20)+'…" → '+Math.round(blob.size/1024)+'KB','ok'); }
+    catch(e){ log('✗ "'+t.slice(0,20)+'…" → '+e.name+': '+e.message,'err'); }
+  }
+}
+const s=document.createElement('script'); s.src='js/yemot.js';
+s.onload=()=>run2(); s.onerror=()=>log('✗ טעינת yemot.js נכשלה','err');
+document.body.appendChild(s);
 </script></body></html>

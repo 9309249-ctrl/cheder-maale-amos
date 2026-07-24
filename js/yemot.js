@@ -553,6 +553,7 @@
 
   // חשיפה למודולים אחרים (דיווחים קוליים): המפתח הפעיל + עזרי ימות
   window.geminiKey = gKey;
+  window.geminiSpeak = geminiSpeak;   // לשימוש עמוד הבדיקה/מודולים
   window.Yemot = {
     API, token, call,
     downloadUrl: path => `${API}/DownloadFile?token=${encodeURIComponent(token())}&path=${encodeURIComponent(path)}`
