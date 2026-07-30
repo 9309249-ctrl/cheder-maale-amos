@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ניהול בקשות הנחה — חיידר מעלה עמוס</title>
+<link rel="icon" type="image/png" href="img/logo.png">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  body { background: #f4f6f9; font-family: Heebo, Arial, sans-serif; }
+  .navbar { background: #0d6efd; }
+  .brand-logo { height: 36px; margin-left: 8px; border-radius: 6px; background: #fff; padding: 3px; }
+  .card { border-radius: 14px; box-shadow: 0 4px 16px rgba(0,0,0,0.05); border: none; margin-bottom: 16px; }
+  .status-badge { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+  .status-התקבל { background: #fef3c7; color: #92400e; }
+  .status-מאושר { background: #d1fae5; color: #065f46; }
+  .status-נדחה { background: #fee2e2; color: #991b1b; }
+  .row-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  #login-pane { max-width: 400px; margin: 80px auto; }
+  .stat-card { text-align: center; padding: 20px; }
+  .stat-card .n { font-size: 32px; font-weight: 800; color: #0d6efd; }
+  .stat-card .l { color: #64748b; font-size: 14px; }
+  @media print {
+    .no-print { display: none !important; }
+    body { background: #fff; }
+    .card { box-shadow: none; border: 1px solid #ddd !important; page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="navbar navbar-dark mb-4 no-print">
+  <div class="container">
+    <span class="navbar-brand"><img src="img/logo.png" alt="לוגו" class="brand-logo"> ניהול בקשות הנחה</span>
+    <div>
+      <button class="btn btn-sm btn-outline-light" onclick="loadRequests()"><i class="bi bi-arrow-clockwise"></i> רענן</button>
+      <a href="takanot-hanacha.html" class="btn btn-sm btn-outline-light" target="_blank"><i class="bi bi-box-arrow-up-left"></i> צפייה בטופס</a>
+    </div>
+  </div>
+</nav>
+
+<div class="container">
+
+  <div id="login-pane" class="card p-4">
+    <h4 class="text-center mb-3">כניסה למערכת ניהול</h4>
+    <input class="form-control mb-2" id="admin-pin" type="password" placeholder="סיסמת מנהל">
+    <button class="btn btn-primary w-100" onclick="loginAdmin()">כניסה</button>
+    <div id="login-err" class="alert alert-danger mt-2 d-none"></div>
+  </div>
+
+  <div id="main-pane" style="display:none;">
+
+    <div class="row g-3 mb-3">
+      <div class="col-md-3"><div class="card stat-card"><div class="n" id="stat-total">-</div><div class="l">סה״כ בקשות</div></div></div>
+      <div class="col-md-3"><div class="card stat-card"><div class="n" id="stat-pending">-</div><div class="l">ממתין</div></div></div>
+      <div class="col-md-3"><div class="card stat-card"><div class="n" id="stat-approved">-</div><div class="l">אושר</div></div></div>
+      <div class="col-md-3"><div class="card stat-card"><div class="n" id="stat-avg">-</div><div class="l">הכנסה נטו ממוצעת</div></div></div>
+    </div>
+
+    <div class="card p-3 no-print">
+      <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+        <input class="form-control" id="search-box" placeholder="חיפוש לפי שם / ת״ז / טלפון..." style="max-width:340px;">
+        <select class="form-select" id="filter-status" style="max-width:180px;">
+          <option value="">כל הסטטוסים</option>
+          <option>התקבל</option>
+          <option>מאושר</option>
+          <option>נדחה</option>
+        </select>
+        <button class="btn btn-outline-primary" onclick="printSelected()"><i class="bi bi-printer"></i> הדפס נבחרים</button>
+        <button class="btn btn-outline-secondary" onclick="exportCSV()"><i class="bi bi-file-earmark-spreadsheet"></i> יצוא</button>
+        <div class="ms-auto text-muted small">מסמכים ב-Gmail: <a href="https://mail.google.com/mail/u/0/#search/subject%3A%22%5B%D7%94%D7%A0%D7%97%D7%94%5D%22" target="_blank">[הנחה]</a></div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-hover align-middle">
+          <thead class="table-light">
+            <tr>
+              <th><input type="checkbox" onchange="toggleAll(this)"></th>
+              <th>מזהה</th>
+              <th>שם משפחה</th>
+              <th>ת״ז בעל</th>
+              <th>טלפון</th>
+              <th>נפשות</th>
+              <th>הכנסה נטו</th>
+              <th>סטטוס</th>
+              <th>תאריך</th>
+              <th>פעולות</th>
+            </tr>
+          </thead>
+          <tbody id="requests-tbody">
+            <tr><td colspan="10" class="text-center text-muted py-4">טוען...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="print-area"></div>
+
+    <div class="card p-3 mt-3 no-print">
+      <h5>עריכת טקסט הטופס</h5>
+      <p class="small text-muted">הטקסט המקדים שההורים רואים בראש הטופס. לחיצה על שמירה מעדכנת את הטופס באתר.</p>
+      <textarea class="form-control" id="cover-editor" rows="4"></textarea>
+      <button class="btn btn-primary mt-2" onclick="saveCoverText()"><i class="bi bi-save"></i> שמור טקסט טופס</button>
+      <div id="save-status" class="small mt-2"></div>
+    </div>
+
+  </div>
+
+</div>
+
+<div id="modal-view" class="modal fade" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">פרטי בקשה</h5>
+        <button class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="modal-body"></div>
+      <div class="modal-footer">
+        <button class="btn btn-outline-primary" onclick="printOne(currentReq && currentReq.מזהה_בקשה)"><i class="bi bi-printer"></i> הדפס</button>
+        <button class="btn btn-outline-success" onclick="setStatus('מאושר')">אישור</button>
+        <button class="btn btn-outline-danger" onclick="setStatus('נדחה')">דחייה</button>
+        <button class="btn btn-secondary" data-bs-dismiss="modal">סגירה</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzhRqTLE4fjjDqrH1we-JlGZ15R-ws8b_gfWF1xF1ewailaiyiS_YXqUhRtb3cQghVt/exec';
+const AGENT_TOKEN = 'BHT_AGENT_2026';
+const INSTANCE = 'cheder-maale-amos';
+const TAB = 'בקשות_הנחה';
+const ADMIN_PIN = '6742853';
+
+let allRows = [];
+let currentReq = null;
+
+function loginAdmin() {
+  const pin = document.getElementById('admin-pin').value.trim();
+  const err = document.getElementById('login-err');
+  if (pin === ADMIN_PIN) {
+    sessionStorage.setItem('takanot_admin', '1');
+    document.getElementById('login-pane').style.display = 'none';
+    document.getElementById('main-pane').style.display = 'block';
+    loadRequests();
+  } else {
+    err.textContent = 'סיסמה שגויה';
+    err.classList.remove('d-none');
+  }
+}
+
+if (sessionStorage.getItem('takanot_admin') === '1') {
+  document.getElementById('login-pane').style.display = 'none';
+  document.getElementById('main-pane').style.display = 'block';
+  document.addEventListener('DOMContentLoaded', loadRequests);
+}
+
+async function loadRequests() {
+  const tbody = document.getElementById('requests-tbody');
+  tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-4">טוען...</td></tr>';
+  try {
+    const url = `${APPS_SCRIPT_URL}?action=cheder_listRows&token=${AGENT_TOKEN}&instance=${INSTANCE}&tab=${encodeURIComponent(TAB)}`;
+    const r = await fetch(url);
+    const d = await r.json();
+    allRows = d.ok ? (d.rows || []) : [];
+    renderTable();
+    updateStats();
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="10" class="text-danger py-4 text-center">שגיאה בטעינה: ${e.message}</td></tr>`;
+  }
+}
+
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function filteredRows() {
+  const q = document.getElementById('search-box').value.trim().toLowerCase();
+  const status = document.getElementById('filter-status').value;
+  return allRows.filter(r => {
+    if (status && r['סטטוס'] !== status) return false;
+    if (q) {
+      const blob = [r['שם_משפחה'], r['שם_בעל'], r['שם_אישה'], r['תז_בעל'], r['תז_אישה'], r['טלפון']].join(' ').toLowerCase();
+      if (!blob.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function renderTable() {
+  const rows = filteredRows();
+  const tbody = document.getElementById('requests-tbody');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-4">אין בקשות</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(r => {
+    const date = r['תאריך_הגשה'] ? new Date(r['תאריך_הגשה']).toLocaleDateString('he-IL') : '';
+    const status = r['סטטוס'] || 'התקבל';
+    return `<tr data-id="${esc(r['מזהה_בקשה'])}">
+      <td><input type="checkbox" class="row-check" value="${esc(r['מזהה_בקשה'])}"></td>
+      <td><small>${esc(r['מזהה_בקשה'])}</small></td>
+      <td><strong>${esc(r['שם_משפחה'])}</strong></td>
+      <td>${esc(r['תז_בעל'])}</td>
+      <td>${esc(r['טלפון'])}</td>
+      <td class="text-center">${esc(r['מספר_נפשות'])}</td>
+      <td>${esc(r['נטו_סה_כ'])} ₪</td>
+      <td><span class="status-badge status-${esc(status)}">${esc(status)}</span></td>
+      <td>${date}</td>
+      <td class="row-actions">
+        <button class="btn btn-sm btn-outline-primary" onclick='openReq(${JSON.stringify(r['מזהה_בקשה'])})'><i class="bi bi-eye"></i></button>
+        <button class="btn btn-sm btn-outline-secondary" onclick='printOne(${JSON.stringify(r['מזהה_בקשה'])})'><i class="bi bi-printer"></i></button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function updateStats() {
+  document.getElementById('stat-total').textContent = allRows.length;
+  document.getElementById('stat-pending').textContent = allRows.filter(r => (r['סטטוס']||'התקבל') === 'התקבל').length;
+  document.getElementById('stat-approved').textContent = allRows.filter(r => r['סטטוס'] === 'מאושר').length;
+  const avg = allRows.reduce((s,r) => s + (+r['נטו_סה_כ']||0), 0) / (allRows.length || 1);
+  document.getElementById('stat-avg').textContent = Math.round(avg).toLocaleString('he-IL') + ' ₪';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('search-box')?.addEventListener('input', renderTable);
+  document.getElementById('filter-status')?.addEventListener('change', renderTable);
+});
+
+function openReq(id) {
+  const r = allRows.find(x => x['מזהה_בקשה'] === id);
+  if (!r) return;
+  currentReq = r;
+  const kids = (() => { try { return JSON.parse(r['ילדים_json']||'[]'); } catch { return []; } })();
+  document.getElementById('modal-body').innerHTML = detailHTML(r, kids);
+  new bootstrap.Modal(document.getElementById('modal-view')).show();
+}
+
+function detailHTML(r, kids) {
+  const gmailSearch = `https://mail.google.com/mail/u/0/#search/${encodeURIComponent(r['מזהה_בקשה'])}`;
+  return `
+  <h4>${esc(r['שם_משפחה'])} — ${esc(r['מזהה_בקשה'])}</h4>
+  <div class="row g-2 mt-2">
+    <div class="col-md-6"><strong>בעל:</strong> ${esc(r['שם_בעל'])} — ת״ז ${esc(r['תז_בעל'])}</div>
+    <div class="col-md-6"><strong>אישה:</strong> ${esc(r['שם_אישה'])} — ת״ז ${esc(r['תז_אישה'])}</div>
+    <div class="col-md-6"><strong>טלפון:</strong> ${esc(r['טלפון'])}</div>
+    <div class="col-md-6"><strong>מייל:</strong> ${esc(r['מייל']) || '—'}</div>
+    <div class="col-12"><strong>כתובת:</strong> ${esc(r['כתובת'])}</div>
+    <div class="col-12"><strong>ילדים:</strong> ${kids.map(k => esc(k.name) + (k.class?` (${esc(k.class)})`:'')).join(', ') || '—'}</div>
+  </div>
+  <h5 class="mt-3">הכנסות</h5>
+  <table class="table table-sm table-bordered">
+    <tr><th></th><th>ברוטו</th><th>נטו</th></tr>
+    <tr><td>בעל</td><td>${esc(r['ברוטו_בעל'])} ₪</td><td>${esc(r['נטו_בעל'])} ₪</td></tr>
+    <tr><td>אישה</td><td>${esc(r['ברוטו_אישה'])} ₪</td><td>${esc(r['נטו_אישה'])} ₪</td></tr>
+    <tr class="table-info"><th>סה״כ</th><th>${esc(r['ברוטו_סה_כ'])} ₪</th><th>${esc(r['נטו_סה_כ'])} ₪</th></tr>
+  </table>
+  ${r['הכנסות_נוספות'] ? `<div><strong>הכנסות נוספות:</strong> ${esc(r['הכנסות_נוספות'])}</div>` : ''}
+  <div class="mt-2"><strong>מספר נפשות:</strong> ${esc(r['מספר_נפשות'])}</div>
+  <div class="mt-3 p-3" style="background:#eff6ff;border-radius:8px;">
+    <strong>מסמכים מצורפים</strong> — נשמרו במייל של המזכירות (Gmail).<br>
+    <a href="${gmailSearch}" target="_blank" class="btn btn-sm btn-primary mt-2"><i class="bi bi-envelope-paper"></i> פתח ב-Gmail (תלושים, עובר-ושב, חתימה)</a>
+  </div>`;
+}
+
+function printOne(id) {
+  const r = allRows.find(x => x['מזהה_בקשה'] === id);
+  if (!r) return;
+  const kids = (() => { try { return JSON.parse(r['ילדים_json']||'[]'); } catch { return []; } })();
+  const area = document.getElementById('print-area');
+  area.innerHTML = `<div class="card p-4">${detailHTML(r, kids)}</div>`;
+  window.print();
+}
+
+function printSelected() {
+  const ids = [...document.querySelectorAll('.row-check:checked')].map(cb => cb.value);
+  if (!ids.length) { alert('בחר לפחות בקשה אחת'); return; }
+  const area = document.getElementById('print-area');
+  area.innerHTML = ids.map(id => {
+    const r = allRows.find(x => x['מזהה_בקשה'] === id);
+    if (!r) return '';
+    const kids = (() => { try { return JSON.parse(r['ילדים_json']||'[]'); } catch { return []; } })();
+    return `<div class="card p-4" style="page-break-after:always;">${detailHTML(r, kids)}</div>`;
+  }).join('');
+  window.print();
+}
+
+function toggleAll(cb) {
+  document.querySelectorAll('.row-check').forEach(c => c.checked = cb.checked);
+}
+
+async function setStatus(newStatus) {
+  if (!currentReq) return;
+  if (!confirm(`לשנות סטטוס ל: ${newStatus}?`)) return;
+  const form = new FormData();
+  form.append('action', 'cheder_updateRow');
+  form.append('token', AGENT_TOKEN);
+  form.append('instance', INSTANCE);
+  form.append('tab', TAB);
+  form.append('key_field', 'מזהה_בקשה');
+  form.append('key_value', currentReq['מזהה_בקשה']);
+  form.append('data', JSON.stringify({ סטטוס: newStatus }));
+  try {
+    await fetch(APPS_SCRIPT_URL, { method: 'POST', body: form });
+    currentReq['סטטוס'] = newStatus;
+    await loadRequests();
+    bootstrap.Modal.getInstance(document.getElementById('modal-view'))?.hide();
+  } catch (e) { alert('שגיאה: ' + e.message); }
+}
+
+function exportCSV() {
+  const rows = filteredRows();
+  if (!rows.length) { alert('אין נתונים ליצוא'); return; }
+  const cols = ['מזהה_בקשה','שם_משפחה','שם_בעל','תז_בעל','שם_אישה','תז_אישה','טלפון','כתובת','ילדים_תמצית','ברוטו_בעל','נטו_בעל','ברוטו_אישה','נטו_אישה','ברוטו_סה_כ','נטו_סה_כ','מספר_נפשות','סטטוס','תאריך_הגשה'];
+  const csv = [cols.join(','), ...rows.map(r => cols.map(c => JSON.stringify(r[c]||'')).join(','))].join('\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `בקשות_הנחה_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+
+const DEFAULT_COVER = 'טופס זה מיועד להורים המבקשים לקבל אישור על זכאות להנחה בשכר לימוד מהמועצה האזורית. הפרטים והמסמכים שיוגשו נשמרים במערכת סגורה, נבדקים ע"י המזכירות ומועברים בצורה מרוכזת למועצה. אין מדובר בשליחה גלויה למזכירות בלבד — המידע נשמר ומועבר בצורה רשמית.';
+
+document.addEventListener('DOMContentLoaded', () => {
+  const stored = localStorage.getItem('takanot_cover_text') || DEFAULT_COVER;
+  const ed = document.getElementById('cover-editor');
+  if (ed) ed.value = stored;
+});
+
+function saveCoverText() {
+  const text = document.getElementById('cover-editor').value.trim();
+  localStorage.setItem('takanot_cover_text', text);
+  document.getElementById('save-status').innerHTML = '<span class="text-success">נשמר מקומית. לעדכון גלובלי — יש לערוך את הטופס בגיטהאב.</span>';
+}
+</script>
+</body>
+</html>
