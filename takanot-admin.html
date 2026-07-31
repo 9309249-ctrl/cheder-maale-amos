@@ -220,11 +220,19 @@ function renderTable() {
       <td><span class="status-badge status-${esc(status)}">${esc(status)}</span></td>
       <td>${date}</td>
       <td class="row-actions">
-        <button class="btn btn-sm btn-outline-primary" onclick='openReq(${JSON.stringify(r['מזהה_בקשה'])})'><i class="bi bi-eye"></i></button>
-        <button class="btn btn-sm btn-outline-secondary" onclick='printOne(${JSON.stringify(r['מזהה_בקשה'])})'><i class="bi bi-printer"></i></button>
+        <button class="btn btn-sm btn-outline-primary btn-open" title="צפייה"><i class="bi bi-eye"></i></button>
+        <button class="btn btn-sm btn-outline-secondary btn-print" title="הדפסה"><i class="bi bi-printer"></i></button>
       </td>
     </tr>`;
   }).join('');
+  // האזנה מבוססת data-id במקום הזרקת המזהה ל-onclick (מונע XSS דרך מזהה_בקשה מזויף)
+  tbody.onclick = function (e) {
+    const btn = e.target.closest('button'); if (!btn) return;
+    const tr = btn.closest('tr'); if (!tr) return;
+    const id = tr.dataset.id;
+    if (btn.classList.contains('btn-open')) openReq(id);
+    else if (btn.classList.contains('btn-print')) printOne(id);
+  };
 }
 
 function updateStats() {
