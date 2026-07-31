@@ -153,7 +153,17 @@ function loginAdmin() {
   }
 }
 
-if (sessionStorage.getItem('takanot_admin') === '1') {
+// כשהמסך מוטמע בתוך המערכת (iframe מאותו origin) — המשתמש כבר עבר את ההתחברות
+// של המערכת, אז אין צורך בסיסמה נפרדת. הטמעה חוצת-origin (אתר זר) תיכשל בקריאת
+// window.parent ותיפול ל-catch, כך שהגייט נשאר לגישה ישירה ל-URL.
+function isTrustedEmbed() {
+  try {
+    if (window.top === window.self) return false;         // לא בתוך iframe
+    return window.parent.location.origin === window.location.origin;
+  } catch (_) { return false; }                            // parent חוצה-origin — לא לסמוך
+}
+
+if (isTrustedEmbed() || sessionStorage.getItem('takanot_admin') === '1') {
   document.getElementById('login-pane').style.display = 'none';
   document.getElementById('main-pane').style.display = 'block';
   document.addEventListener('DOMContentLoaded', loadRequests);
