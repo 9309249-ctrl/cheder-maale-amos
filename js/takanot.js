@@ -180,11 +180,8 @@ function collectData() {
     כתובת: val('f-address'),
     ילדים_json: JSON.stringify(children),
     ילדים_תמצית: children.map(c => c.name + (c.class ? ` (${c.class})` : '')).join(', '),
-    ברוטו_בעל: val('f-husband-gross'),
     נטו_בעל: val('f-husband-net'),
-    ברוטו_אישה: val('f-wife-gross'),
     נטו_אישה: val('f-wife-net'),
-    ברוטו_סה_כ: (+val('f-husband-gross') || 0) + (+val('f-wife-gross') || 0),
     נטו_סה_כ: (+val('f-husband-net') || 0) + (+val('f-wife-net') || 0),
     הכנסות_נוספות: val('f-extra-income'),
     מספר_נפשות: val('f-family-size'),
@@ -204,8 +201,8 @@ function validate(data) {
   if (!/^0\d{8,9}$/.test(data.טלפון)) errors.push('טלפון לא תקין');
   if (!data.כתובת) errors.push('כתובת חסרה');
   if (data.ילדים_json === '[]') errors.push('חובה למלא לפחות ילד אחד');
-  if (!data.ברוטו_בעל || !data.נטו_בעל) errors.push('הכנסות הבעל חסרות');
-  if (!data.ברוטו_אישה || !data.נטו_אישה) errors.push('הכנסות האישה חסרות');
+  if (!data.נטו_בעל) errors.push('הכנסת הבעל (נטו) חסרה');
+  if (!data.נטו_אישה) errors.push('הכנסת האישה (נטו) חסרה');
   if (!data.מספר_נפשות) errors.push('מספר נפשות חסר');
   if (!document.getElementById('f-agree').checked) errors.push('חובה לאשר את ההצהרה');
   if (!state.files.husband) errors.push('תלוש הבעל לא הועלה');
@@ -236,9 +233,9 @@ function mapToSB(d) {
     phone: d.טלפון, email: d.מייל, address: d.כתובת,
     children: JSON.parse(d.ילדים_json || '[]'),
     household_size: d.מספר_נפשות,
-    gross_husband: d.ברוטו_בעל, net_husband: d.נטו_בעל,
-    gross_wife: d.ברוטו_אישה, net_wife: d.נטו_אישה,
-    gross_total: String(d.ברוטו_סה_כ), net_total: String(d.נטו_סה_כ),
+    gross_husband: null, net_husband: d.נטו_בעל,
+    gross_wife: null, net_wife: d.נטו_אישה,
+    gross_total: null, net_total: String(d.נטו_סה_כ),
     extra_income: d.הכנסות_נוספות,
   };
 }

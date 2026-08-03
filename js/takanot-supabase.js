@@ -64,6 +64,14 @@
       const { data, error } = await sb().storage.from('takanot-docs').createSignedUrl(path, 3600);
       if (error) throw error;
       return data.signedUrl;
+    },
+
+    // הורדת המסמך כ-Blob דרך ערוץ ה-API של Supabase (מורשה ב-נטפרי, בניגוד לפתיחת
+    // קישור חתום בדף חדש שנטפרי חוסם). מחזיר blob + שם קובץ.
+    async download(path) {
+      const { data, error } = await sb().storage.from('takanot-docs').download(path);
+      if (error) throw error;
+      return { blob: data, name: (String(path).split('/').pop() || 'document') };
     }
   };
 })();
