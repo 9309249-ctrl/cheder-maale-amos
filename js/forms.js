@@ -279,7 +279,7 @@
           if (fl.type === 'checkbox') v = (v === true || v === 'true' || v === 'כן') ? 'כן' : (v == null || v === '' ? '' : 'לא');
           return v == null ? '' : v;
         });
-        return base.concat(extra).map(v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(',');
+        return base.concat(extra).map(v => { let s = String(v == null ? '' : v); if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; return '"' + s.replace(/"/g, '""') + '"'; }).join(',');
       }));
       const blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
       const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'form_' + f.id + '.csv'; a.click();

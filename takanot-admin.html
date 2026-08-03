@@ -354,8 +354,10 @@ async function setStatus(newStatus) {
 function exportCSV() {
   const rows = filteredRows();
   if (!rows.length) { alert('אין נתונים ליצוא'); return; }
-  const cols = ['מזהה_בקשה','שם_משפחה','שם_בעל','תז_בעל','שם_אישה','תז_אישה','טלפון','כתובת','ילדים_תמצית','ברוטו_בעל','נטו_בעל','ברוטו_אישה','נטו_אישה','ברוטו_סה_כ','נטו_סה_כ','מספר_נפשות','סטטוס','תאריך_הגשה'];
-  const csv = [cols.join(','), ...rows.map(r => cols.map(c => JSON.stringify(r[c]||'')).join(','))].join('\n');
+  const cols = ['מזהה_בקשה','שם_משפחה','שם_בעל','תז_בעל','שם_אישה','תז_אישה','טלפון','כתובת','ילדים_תמצית','נטו_בעל','נטו_אישה','נטו_סה_כ','מספר_נפשות','סטטוס','תאריך_הגשה'];
+  // csvCell: מקדים ' לתא שמתחיל ב-= + - @ (מונע הרצת נוסחאות באקסל — CSV injection דרך קלט הורים)
+  const csvCell = v => { v = String(v == null ? '' : v); if (/^[=+\-@\t\r]/.test(v)) v = "'" + v; return '"' + v.replace(/"/g, '""') + '"'; };
+  const csv = [cols.map(csvCell).join(','), ...rows.map(r => cols.map(c => csvCell(r[c])).join(','))].join('\n');
   const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);

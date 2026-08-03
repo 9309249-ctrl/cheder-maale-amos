@@ -215,9 +215,9 @@ function validate(data) {
   if (data.מייל && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.מייל)) errors.push('כתובת המייל לא תקינה');
   if (!data.כתובת) errors.push('כתובת חסרה');
   if (data.ילדים_json === '[]') errors.push('חובה למלא לפחות ילד אחד');
-  if (!data.נטו_בעל) errors.push('הכנסת הבעל (נטו) חסרה');
-  if (!data.נטו_אישה) errors.push('הכנסת האישה (נטו) חסרה');
-  if (!data.מספר_נפשות || +data.מספר_נפשות < 1) errors.push('מספר נפשות חייב להיות לפחות 1');
+  if (!/^\d+$/.test(data.נטו_בעל)) errors.push('הכנסת הבעל (נטו) — יש להזין מספר בלבד');
+  if (!/^\d+$/.test(data.נטו_אישה)) errors.push('הכנסת האישה (נטו) — יש להזין מספר בלבד');
+  if (!/^\d+$/.test(data.מספר_נפשות) || +data.מספר_נפשות < 1) errors.push('מספר נפשות — יש להזין מספר (לפחות 1)');
   if (!document.getElementById('f-agree').checked) errors.push('חובה לאשר את ההצהרה');
   if (!state.files.husband) errors.push('תלוש הבעל לא הועלה');
   if (!state.files.wife) errors.push('תלוש האישה לא הועלה');
