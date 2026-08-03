@@ -191,19 +191,33 @@ function collectData() {
   };
 }
 
+// אימות ת״ז ישראלית אמיתי (ספרת ביקורת) — לא רק 9 ספרות
+function validIsraeliId(id) {
+  id = String(id || '').trim();
+  if (!/^\d{9}$/.test(id)) return false;
+  let sum = 0;
+  for (let i = 0; i < 9; i++) {
+    let n = +id[i] * ((i % 2) + 1);
+    if (n > 9) n -= 9;
+    sum += n;
+  }
+  return sum % 10 === 0;
+}
+
 function validate(data) {
   const errors = [];
   if (!data.שם_משפחה) errors.push('שם משפחה חסר');
   if (!data.שם_בעל) errors.push('שם הבעל חסר');
   if (!data.שם_אישה) errors.push('שם האישה חסר');
-  if (!/^\d{9}$/.test(data.תז_בעל)) errors.push('ת״ז הבעל לא תקינה');
-  if (!/^\d{9}$/.test(data.תז_אישה)) errors.push('ת״ז האישה לא תקינה');
+  if (!validIsraeliId(data.תז_בעל)) errors.push('ת״ז הבעל לא תקינה (בדוק את הספרות)');
+  if (!validIsraeliId(data.תז_אישה)) errors.push('ת״ז האישה לא תקינה (בדוק את הספרות)');
   if (!/^0\d{8,9}$/.test(data.טלפון)) errors.push('טלפון לא תקין');
+  if (data.מייל && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.מייל)) errors.push('כתובת המייל לא תקינה');
   if (!data.כתובת) errors.push('כתובת חסרה');
   if (data.ילדים_json === '[]') errors.push('חובה למלא לפחות ילד אחד');
   if (!data.נטו_בעל) errors.push('הכנסת הבעל (נטו) חסרה');
   if (!data.נטו_אישה) errors.push('הכנסת האישה (נטו) חסרה');
-  if (!data.מספר_נפשות) errors.push('מספר נפשות חסר');
+  if (!data.מספר_נפשות || +data.מספר_נפשות < 1) errors.push('מספר נפשות חייב להיות לפחות 1');
   if (!document.getElementById('f-agree').checked) errors.push('חובה לאשר את ההצהרה');
   if (!state.files.husband) errors.push('תלוש הבעל לא הועלה');
   if (!state.files.wife) errors.push('תלוש האישה לא הועלה');
