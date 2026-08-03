@@ -43,12 +43,8 @@
 
 <div class="container">
 
-  <div id="login-pane" class="card p-4">
-    <h4 class="text-center mb-3">כניסה למערכת ניהול</h4>
-    <input class="form-control mb-2" id="admin-pin" type="password" placeholder="סיסמת מנהל">
-    <button class="btn btn-primary w-100" onclick="loginAdmin()">כניסה</button>
-    <div id="login-err" class="alert alert-danger mt-2 d-none"></div>
-  </div>
+  <!-- ההתחברות עברה למערכת (Supabase Auth) — RLS מגן בצד-שרת, אין יותר PIN כאן -->
+  <div id="login-pane" style="display:none"></div>
 
   <div id="main-pane" style="display:none;">
 
@@ -129,59 +125,75 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<!-- שכבת נתונים מאובטחת (Supabase+RLS) — מחליפה את ה-webhook עם הטוקן החשוף -->
+<script src="vendor/supabase.js"></script>
+<script src="js/config.js"></script>
+<script>window.CV3 = window.CV3 || {}; window.CV3.TAKANOT_SB = true;</script>
+<script src="js/supabase.js"></script>
+<script src="js/takanot-supabase.js"></script>
 <script>
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzhRqTLE4fjjDqrH1we-JlGZ15R-ws8b_gfWF1xF1ewailaiyiS_YXqUhRtb3cQghVt/exec';
-const AGENT_TOKEN = 'BHT_AGENT_2026';
-const INSTANCE = 'cheder-maale-amos';
-const TAB = 'בקשות_הנחה';
-const ADMIN_PIN = '6742853';
-
 let allRows = [];
 let currentReq = null;
 
-function loginAdmin() {
-  const pin = document.getElementById('admin-pin').value.trim();
-  const err = document.getElementById('login-err');
-  if (pin === ADMIN_PIN) {
-    sessionStorage.setItem('takanot_admin', '1');
-    document.getElementById('login-pane').style.display = 'none';
-    document.getElementById('main-pane').style.display = 'block';
-    loadRequests();
-  } else {
-    err.textContent = 'סיסמה שגויה';
-    err.classList.remove('d-none');
-  }
-}
-
-// כשהמסך מוטמע בתוך המערכת (iframe מאותו origin) — המשתמש כבר עבר את ההתחברות
-// של המערכת, אז אין צורך בסיסמה נפרדת. הטמעה חוצת-origin (אתר זר) תיכשל בקריאת
-// window.parent ותיפול ל-catch, כך שהגייט נשאר לגישה ישירה ל-URL.
-function isTrustedEmbed() {
-  try {
-    if (window.top === window.self) return false;         // לא בתוך iframe
-    return window.parent.location.origin === window.location.origin;
-  } catch (_) { return false; }                            // parent חוצה-origin — לא לסמוך
-}
-
-if (isTrustedEmbed() || sessionStorage.getItem('takanot_admin') === '1') {
+// האבטחה עברה ל-RLS בצד-שרת: הקריאה נפתחת רק ל-session מאומת של צוות (מנהל/מזכירות).
+// אין יותר PIN בצד-לקוח ואין טוקן. המסך פועל כשנפתח בתוך המערכת המחוברת (session נשמר
+// ב-localStorage מאותו origin); גישה ישירה ללא התחברות תחזיר רשימה ריקה מ-RLS.
+document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('login-pane').style.display = 'none';
   document.getElementById('main-pane').style.display = 'block';
-  document.addEventListener('DOMContentLoaded', loadRequests);
+  loadRequests();
+});
+
+// מיפוי שורת Supabase (אנגלית) לשמות העבריים שהמסך מרנדר
+function mapRow(x) {
+  return {
+    _id: x.id,
+    _docs: x.docs || {},
+    'מזהה_בקשה': x.request_code || String(x.id),
+    'שם_משפחה': x.family_name, 'שם_בעל': x.husband_name, 'תז_בעל': x.husband_id,
+    'שם_אישה': x.wife_name, 'תז_אישה': x.wife_id,
+    'טלפון': x.phone, 'מייל': x.email, 'כתובת': x.address,
+    'ילדים_json': JSON.stringify(x.children || []),
+    'ילדים_תמצית': (x.children || []).map(k => k.name + (k.class ? ` (${k.class})` : '')).join(', '),
+    'מספר_נפשות': x.household_size,
+    'ברוטו_בעל': x.gross_husband, 'נטו_בעל': x.net_husband,
+    'ברוטו_אישה': x.gross_wife, 'נטו_אישה': x.net_wife,
+    'ברוטו_סה_כ': x.gross_total, 'נטו_סה_כ': x.net_total,
+    'הכנסות_נוספות': x.extra_income,
+    'סטטוס': x.status || 'התקבל',
+    'תאריך_הגשה': x.created_at,
+  };
 }
 
 async function loadRequests() {
   const tbody = document.getElementById('requests-tbody');
   tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-4">טוען...</td></tr>';
   try {
-    const url = `${APPS_SCRIPT_URL}?action=cheder_listRows&token=${AGENT_TOKEN}&instance=${INSTANCE}&tab=${encodeURIComponent(TAB)}`;
-    const r = await fetch(url);
-    const d = await r.json();
-    allRows = d.ok ? (d.rows || []) : [];
+    if (!window.TakanotSB || !window.TakanotSB.enabled()) throw new Error('המערכת עדיין נטענת');
+    const rows = await window.TakanotSB.list();
+    allRows = rows.map(mapRow);
     renderTable();
     updateStats();
+    if (!rows.length) {
+      let hasSession = false;
+      try { const { data } = await window.sb.auth.getSession(); hasSession = !!(data && data.session); } catch (_) {}
+      if (!hasSession) {
+        tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-4">כדי לצפות בבקשות יש להיכנס למערכת (התחברות צוות). פתח מסך זה דרך התוכנה.</td></tr>';
+      }
+    }
   } catch (e) {
     tbody.innerHTML = `<tr><td colspan="10" class="text-danger py-4 text-center">שגיאה בטעינה: ${e.message}</td></tr>`;
   }
+}
+
+// פתיחת מסמך מה-Storage הפרטי דרך קישור חתום זמני (האזנה מבוססת data-path, בלי הזרקה)
+document.addEventListener('click', function (e) {
+  const b = e.target.closest('.btn-doc');
+  if (b) openDoc(b.dataset.path);
+});
+async function openDoc(path) {
+  try { const url = await window.TakanotSB.signedUrl(path); window.open(url, '_blank'); }
+  catch (e) { alert('שגיאה בפתיחת המסמך: ' + e.message); }
 }
 
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -258,7 +270,16 @@ function openReq(id) {
 }
 
 function detailHTML(r, kids) {
-  const gmailSearch = `https://mail.google.com/mail/u/0/#search/${encodeURIComponent(r['מזהה_בקשה'])}`;
+  const docLabels = { payslip_husband: 'תלוש בעל', payslip_wife: 'תלוש אישה', bank: 'עובר ושב', id_husband: 'ת״ז+ספח בעל', id_wife: 'ת״ז+ספח אישה', extra: 'תלוש נוסף', signature: 'חתימה' };
+  const docs = r._docs || {};
+  let docsHtml = '';
+  Object.keys(docLabels).forEach(slot => {
+    (docs[slot] || []).forEach((path, i) => {
+      const lbl = docLabels[slot] + ((docs[slot].length > 1) ? ' ' + (i + 1) : '');
+      docsHtml += `<button class="btn btn-sm btn-outline-primary m-1 btn-doc" data-path="${esc(path)}"><i class="bi bi-file-earmark-arrow-down"></i> ${esc(lbl)}</button>`;
+    });
+  });
+  if (!docsHtml) docsHtml = '<span class="text-muted">אין מסמכים</span>';
   return `
   <h4>${esc(r['שם_משפחה'])} — ${esc(r['מזהה_בקשה'])}</h4>
   <div class="row g-2 mt-2">
@@ -279,8 +300,8 @@ function detailHTML(r, kids) {
   ${r['הכנסות_נוספות'] ? `<div><strong>הכנסות נוספות:</strong> ${esc(r['הכנסות_נוספות'])}</div>` : ''}
   <div class="mt-2"><strong>מספר נפשות:</strong> ${esc(r['מספר_נפשות'])}</div>
   <div class="mt-3 p-3" style="background:#eff6ff;border-radius:8px;">
-    <strong>מסמכים מצורפים</strong> — נשמרו במייל של המזכירות (Gmail).<br>
-    <a href="${gmailSearch}" target="_blank" class="btn btn-sm btn-primary mt-2"><i class="bi bi-envelope-paper"></i> פתח ב-Gmail (תלושים, עובר-ושב, חתימה)</a>
+    <strong>מסמכים מצורפים</strong> — פתיחה בקישור מאובטח זמני:<br>
+    <div class="mt-2">${docsHtml}</div>
   </div>`;
 }
 
@@ -313,16 +334,8 @@ function toggleAll(cb) {
 async function setStatus(newStatus) {
   if (!currentReq) return;
   if (!confirm(`לשנות סטטוס ל: ${newStatus}?`)) return;
-  const form = new FormData();
-  form.append('action', 'cheder_updateRow');
-  form.append('token', AGENT_TOKEN);
-  form.append('instance', INSTANCE);
-  form.append('tab', TAB);
-  form.append('key_field', 'מזהה_בקשה');
-  form.append('key_value', currentReq['מזהה_בקשה']);
-  form.append('data', JSON.stringify({ סטטוס: newStatus }));
   try {
-    await fetch(APPS_SCRIPT_URL, { method: 'POST', body: form });
+    await window.TakanotSB.updateStatus(currentReq._id, newStatus);
     currentReq['סטטוס'] = newStatus;
     await loadRequests();
     bootstrap.Modal.getInstance(document.getElementById('modal-view'))?.hide();

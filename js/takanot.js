@@ -1,14 +1,10 @@
 /*
- * takanot.js — לוגיקת טופס בקשת הנחה בשכר לימוד
- * שומר לגיליון: cheder_appendRow tab=בקשות_הנחה (instance=cheder-maale-amos)
- * מעלה קבצים ל-Drive: takanot_uploadPDF (חדש) עם fallback ל-email-with-attachments
+ * takanot.js — לוגיקת טופס בקשת סבסוד ההזנה
+ * שומר ל-Supabase דרך ה-RPC המאובטח submit_takanot (js/takanot-supabase.js),
+ * מעלה מסמכים ל-Storage הפרטי. אין טוקן/webhook — RLS בצד-שרת הוא ההגנה.
  */
 
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzhRqTLE4fjjDqrH1we-JlGZ15R-ws8b_gfWF1xF1ewailaiyiS_YXqUhRtb3cQghVt/exec';
-const AGENT_TOKEN = 'BHT_AGENT_2026';
-const INSTANCE = 'cheder-maale-amos';
-const SHEET_TAB = 'בקשות_הנחה';
-const ADMIN_EMAIL = '6742853@gmail.com';
+// ההגשה עוברת ל-Supabase (js/takanot-supabase.js) — אין יותר טוקן חשוף בקוד.
 const MAX_FILE_MB = 10;
 
 const state = {
@@ -55,7 +51,7 @@ function bindMultiSlot(slotId, inputId) {
     for (const f of e.target.files) {
       if (f.type !== 'application/pdf') { alert('רק קבצי PDF מותרים'); continue; }
       if (f.size > MAX_FILE_MB * 1024 * 1024) { alert(`הקובץ ${f.name} גדול מדי, מקסימום ${MAX_FILE_MB} מ״ב`); continue; }
-      state.extra.push({ name: f.name, b64: await fileToB64(f) });
+      state.extra.push({ name: f.name, file: f });
     }
     input.value = '';
     if (state.extra.length) {
@@ -222,13 +218,29 @@ function validate(data) {
   return { errors, sig };
 }
 
-async function postForm(action, payload) {
-  const form = new FormData();
-  form.append('action', action);
-  form.append('token', AGENT_TOKEN);
-  for (const [k, v] of Object.entries(payload)) form.append(k, v);
-  const r = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: form });
-  return r.json();
+// המרת dataURL (חתימה) ל-File להעלאה ל-Storage
+function dataURLtoFile(dataURL, name) {
+  const [meta, b64] = String(dataURL).split(',');
+  const mime = (meta.match(/:(.*?);/) || [])[1] || 'image/png';
+  const bin = atob(b64 || '');
+  const arr = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return new File([arr], name, { type: mime });
+}
+
+// מיפוי שדות הטופס (עברית) לעמודות Supabase (אנגלית)
+function mapToSB(d) {
+  return {
+    family_name: d.שם_משפחה, husband_name: d.שם_בעל, husband_id: d.תז_בעל,
+    wife_name: d.שם_אישה, wife_id: d.תז_אישה,
+    phone: d.טלפון, email: d.מייל, address: d.כתובת,
+    children: JSON.parse(d.ילדים_json || '[]'),
+    household_size: d.מספר_נפשות,
+    gross_husband: d.ברוטו_בעל, net_husband: d.נטו_בעל,
+    gross_wife: d.ברוטו_אישה, net_wife: d.נטו_אישה,
+    gross_total: String(d.ברוטו_סה_כ), net_total: String(d.נטו_סה_כ),
+    extra_income: d.הכנסות_נוספות,
+  };
 }
 
 async function submitForm() {
@@ -248,40 +260,22 @@ async function submitForm() {
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> שולח...';
 
-  const requestId = 'BH-' + Date.now().toString(36).toUpperCase();
-  data.מזהה_בקשה = requestId;
-
   try {
-    // 1. Save form data row
-    const rowResp = await postForm('cheder_appendRow', {
-      instance: INSTANCE,
-      tab: SHEET_TAB,
-      data: JSON.stringify(data),
-    });
+    if (!window.TakanotSB || !window.TakanotSB.enabled()) {
+      throw new Error('המערכת עדיין נטענת — המתן רגע ונסה שוב');
+    }
+    // העלאת המסמכים ל-Storage הפרטי + הכנסת הבקשה דרך ה-RPC המאובטח (בלי טוקן)
+    const filesMap = {
+      payslip_husband: [state.files.husband],
+      payslip_wife: [state.files.wife],
+      bank: [state.files.bank],
+      id_husband: [state.files.husbandId],
+      id_wife: [state.files.wifeId],
+      extra: state.extra.map(x => x.file).filter(Boolean),
+      signature: [dataURLtoFile(sig, 'signature.png')],
+    };
+    const requestId = await window.TakanotSB.submit(mapToSB(data), filesMap);
 
-    // 2. Upload files + signature via sendEmailWithAttachments to admin (durable Gmail copy + can be printed)
-    const attachments = [
-      { name: `${requestId}_${data.שם_משפחה}_תלוש_בעל.pdf`, data: state.fileB64.husband, mime: 'application/pdf' },
-      { name: `${requestId}_${data.שם_משפחה}_תלוש_אישה.pdf`, data: state.fileB64.wife, mime: 'application/pdf' },
-      { name: `${requestId}_${data.שם_משפחה}_עובר_ושב.pdf`, data: state.fileB64.bank, mime: 'application/pdf' },
-      { name: `${requestId}_${data.שם_משפחה}_תז_ספח_בעל.pdf`, data: state.fileB64.husbandId, mime: 'application/pdf' },
-      { name: `${requestId}_${data.שם_משפחה}_תז_ספח_אישה.pdf`, data: state.fileB64.wifeId, mime: 'application/pdf' },
-      ...state.extra.map((x, i) => ({ name: `${requestId}_${data.שם_משפחה}_תלוש_נוסף_${i + 1}.pdf`, data: x.b64, mime: 'application/pdf' })),
-      { name: `${requestId}_${data.שם_משפחה}_חתימה.png`, data: sig.split(',')[1], mime: 'image/png' },
-    ];
-    data._extra_count = state.extra.length;
-    const bodyHtml = buildEmailHTML(data, requestId);
-    const bodyB64 = btoa(unescape(encodeURIComponent(bodyHtml)));
-    const attB64 = btoa(unescape(encodeURIComponent(JSON.stringify(attachments))));
-
-    const emailResp = await postForm('sendEmailWithAttachments', {
-      to: ADMIN_EMAIL,
-      subject: `[הנחה] בקשה חדשה — ${data.שם_משפחה} (${requestId})`,
-      bodyB64,
-      attachmentsB64: attB64,
-    });
-
-    // 3. Show success
     document.getElementById('request-id').textContent = requestId;
     document.getElementById('form-view').style.display = 'none';
     document.getElementById('success-view').style.display = 'block';
