@@ -143,7 +143,7 @@ function bindAddChild() {
     row.dataset.index = idx;
     row.innerHTML = `
       <div class="col-md-6">
-        <label class="form-label required">שם הילד</label>
+        <label class="form-label required">שם התלמיד/ה</label>
         <input class="form-control form-control-lg" data-field="name" required>
       </div>
       <div class="col-md-3">
@@ -212,7 +212,8 @@ function validate(data) {
   if (!validIsraeliId(data.תז_בעל)) errors.push('ת״ז הבעל לא תקינה (בדוק את הספרות)');
   if (!validIsraeliId(data.תז_אישה)) errors.push('ת״ז האישה לא תקינה (בדוק את הספרות)');
   if (!/^0\d{8,9}$/.test(data.טלפון)) errors.push('טלפון לא תקין');
-  if (data.מייל && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.מייל)) errors.push('כתובת המייל לא תקינה');
+  if (!data.מייל) errors.push('כתובת מייל חסרה (לקבלת תשובה)');
+  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.מייל)) errors.push('כתובת המייל לא תקינה');
   if (!data.כתובת) errors.push('כתובת חסרה');
   if (data.ילדים_json === '[]') errors.push('חובה למלא לפחות ילד אחד');
   if (!/^\d+$/.test(data.נטו_בעל)) errors.push('הכנסת הבעל (נטו) — יש להזין מספר בלבד');
