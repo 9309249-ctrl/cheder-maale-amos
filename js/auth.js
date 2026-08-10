@@ -17,15 +17,15 @@
         '<div class="login-logo"><img src="img/logo.png" alt="לוגו החיידר" class="login-logo-img"></div>' +
         '<h2>כניסה למערכת</h2>' +
         '<p class="login-sub">מערכת מעקב — תלמוד תורה</p>' +
-        '<label class="lbl">שם משתמש</label>' +
-        '<input type="text" id="loginTz" class="inp" placeholder="השם המלא שלך" autocomplete="username">' +
+        '<label class="lbl">מספר טלפון</label>' +
+        '<input type="text" id="loginTz" class="inp" placeholder="מספר הטלפון שלך" autocomplete="username" inputmode="tel">' +
         '<label class="lbl">סיסמה</label>' +
         '<input type="password" id="loginPw" class="inp" placeholder="סיסמה (בפעם הראשונה — מספר הטלפון)" autocomplete="current-password">' +
         '<button class="btn-primary" id="loginBtn"><i class="bi bi-box-arrow-in-left"></i> כניסה</button>' +
         '<div id="loginMsg" class="login-msg"></div>' +
         (DEMO
           ? '<div class="demo-note" style="margin-top:14px"><i class="bi bi-info-circle"></i> הדגמה — כניסה בשם + טלפון כסיסמה. מנהל: <b>עמנואל רקובסקי</b> / <b>0548451402</b></div>'
-          : '<p class="login-hint">כניסה בשם; סיסמה ראשונית — מספר הטלפון. אין גישה? פנה למנהל.</p>') +
+          : '<p class="login-hint">כניסה עם מספר הטלפון; סיסמה ראשונית — מספר הטלפון. אין גישה? פנה למנהל.</p>') +
       '</div></div>';
     $('#pages').appendChild(sec);
     $('#loginBtn').addEventListener('click', doLogin);
@@ -36,7 +36,7 @@
     const id = ($('#loginTz').value || '').trim();
     const pw = $('#loginPw').value || '';
     const msg = $('#loginMsg');
-    if (!id || !pw) { msg.textContent = 'נא להזין שם וסיסמה.'; return; }
+    if (!id || !pw) { msg.textContent = 'נא להזין מספר טלפון וסיסמה.'; return; }
     msg.textContent = 'מתחבר…';
     if (DEMO) {
       const users = await window.store.list('users');
@@ -48,15 +48,18 @@
     } else {
       // Supabase: המזהה ממופה למייל סינתטי; הסיסמה מאומתת בצד-שרת (hashed)
       // כניסה גמישה: מייל מלא / מספר טלפון / שם (השם נפתר לכתובת דרך RPC email_by_name)
-      let email;
+      let email, usedName = false;
       if (id.includes('@')) email = id;
       else if (/^[0-9()+\-\s]+$/.test(id)) email = id.replace(/[^0-9]/g, '') + '@bht.co.il';
       else {
+        // כניסה לפי שם דורשת את ה-RPC email_by_name, שנחסם ל-anon בקשיוח האבטחה — לכן נכשלת.
+        // משאירים ניסיון (למקרה שיוחזר בעתיד), אך מנחים את המשתמש להיכנס עם מספר הטלפון.
+        usedName = true;
         try { const { data } = await window.sb.rpc('email_by_name', { p_name: id }); email = data || (id + '@bht.co.il'); }
         catch (_) { email = id + '@bht.co.il'; }
       }
       const { error } = await window.sb.auth.signInWithPassword({ email, password: pw });
-      if (error) { msg.textContent = 'שם או סיסמה שגויים.'; return; }
+      if (error) { msg.textContent = usedName ? 'כניסה עם שם אינה נתמכת — נא להזין את מספר הטלפון שלך.' : 'מספר טלפון או סיסמה שגויים.'; return; }
       msg.textContent = '';   // onAuthStateChange יטען את הפרופיל
     }
   }
