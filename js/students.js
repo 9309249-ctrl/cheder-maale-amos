@@ -36,7 +36,7 @@
       '</div>' +
       '<div class="count-line" id="stuCount"></div>' +
       '<div class="table-wrap"><table class="tbl"><thead><tr>' +
-        '<th>שם</th><th>כיתה</th><th>הורה</th><th>טלפון</th><th>סטטוס</th><th></th>' +
+        '<th>שם</th><th>ת״ז</th><th>כיתה</th><th>הורה</th><th>טלפון</th><th>סטטוס</th><th></th>' +
       '</tr></thead><tbody id="stuBody"></tbody></table></div>' +
       '<div id="stuEmpty" class="empty-state" hidden><i class="bi bi-people"></i><div>אין תלמידים להצגה</div></div>';
 
@@ -45,13 +45,14 @@
       const cf = page.querySelector('#stuClass').value;
       const sf = page.querySelector('#stuStatus').value;
       let rows = students;
-      if (q) rows = rows.filter(s => [s.name, s.parent_name, s.parent_phone].join(' ').includes(q));
+      if (q) rows = rows.filter(s => [s.name, s.family, s.tz, s.parent_name, s.parent_phone].join(' ').includes(q));
       if (cf) rows = rows.filter(s => String(s.class_id) === cf);
       if (sf) rows = rows.filter(s => (s.status || '') === sf);
       const body = page.querySelector('#stuBody');
       body.innerHTML = rows.map(s =>
         '<tr>' +
-        '<td><span class="ava">' + esc((s.name || '?').slice(0, 2)) + '</span> ' + esc(s.name) + '</td>' +
+        '<td><span class="ava">' + esc((s.name || '?').slice(0, 2)) + '</span> ' + esc([s.family, s.name].filter(Boolean).join(' ')) + '</td>' +
+        '<td>' + esc(s.tz) + '</td>' +
         '<td>' + esc(classNameOf(classes, s.class_id)) + '</td>' +
         '<td>' + esc(s.parent_name) + '</td>' +
         '<td>' + (s.parent_phone ? '<a href="tel:' + esc(s.parent_phone) + '">' + esc(s.parent_phone) + '</a>' : '') + '</td>' +
@@ -93,8 +94,9 @@
           : '<div class="tl-note" style="padding:6px 2px;font-size:.84rem">אין משימות משויכות</div>') + '</div>';
       m.el.querySelector('.modal-body').innerHTML =
         '<div class="det-head"><span class="ava lg">' + esc((s.name || '?').slice(0, 2)) + '</span>' +
-        '<div><div class="det-name">' + esc(s.name) + '</div><span class="chip ' + (s.status === 'פעיל' ? 'ok' : 'off') + '">' + esc(s.status || '') + '</span></div></div>' +
-        '<div class="det-grid">' + row('כיתה', classNameOf(classes, s.class_id)) + row('שם הורה', s.parent_name) +
+        '<div><div class="det-name">' + esc([s.family, s.name].filter(Boolean).join(' ')) + '</div><span class="chip ' + (s.status === 'פעיל' ? 'ok' : 'off') + '">' + esc(s.status || '') + '</span></div></div>' +
+        '<div class="det-grid">' + row('שם משפחה', s.family) + row('תעודת זהות', s.tz) + row('כיתה', classNameOf(classes, s.class_id)) +
+          row('ת. לידה עברי', s.birthdate_heb) + row('ת. לידה לועזי', s.birthdate) + row('שם הורה', s.parent_name) +
           (s.parent_phone ? '<div class="det-row"><span class="det-lbl">טלפון</span><span class="det-val"><a href="tel:' + esc(s.parent_phone) + '">' + esc(s.parent_phone) + '</a></span></div>' : '') +
           row('הערות', s.notes) + '</div>' +
         '<div class="det-stats">' +
@@ -129,8 +131,12 @@
       const classOpts = classes.map(c => '<option value="' + c.id + '"' + (s.class_id === c.id ? ' selected' : '') + '>' + esc(c.name) + '</option>').join('');
       const body =
         '<div class="form-grid">' +
-        '<label class="fld"><span>שם התלמיד *</span><input class="inp mb0" id="f_name" value="' + esc(s.name) + '"></label>' +
+        '<label class="fld"><span>שם משפחה</span><input class="inp mb0" id="f_family" value="' + esc(s.family) + '"></label>' +
+        '<label class="fld"><span>שם התלמיד/ה *</span><input class="inp mb0" id="f_name" value="' + esc(s.name) + '"></label>' +
+        '<label class="fld"><span>תעודת זהות</span><input class="inp mb0" id="f_tz" inputmode="numeric" value="' + esc(s.tz) + '"></label>' +
         '<label class="fld"><span>כיתה</span><select class="inp mb0" id="f_class"><option value="">—</option>' + classOpts + '</select></label>' +
+        '<label class="fld"><span>ת. לידה עברי</span><input class="inp mb0" id="f_bheb" placeholder="למשל: כ״ג אדר תשפ״ד" value="' + esc(s.birthdate_heb) + '"></label>' +
+        '<label class="fld"><span>ת. לידה לועזי</span><input class="inp mb0" id="f_bdate" type="date" value="' + esc(s.birthdate) + '"></label>' +
         '<label class="fld"><span>שם הורה</span><input class="inp mb0" id="f_pname" value="' + esc(s.parent_name) + '"></label>' +
         '<label class="fld"><span>טלפון הורה</span><input class="inp mb0" id="f_phone" value="' + esc(s.parent_phone) + '"></label>' +
         '<label class="fld"><span>סטטוס</span><select class="inp mb0" id="f_status"><option' + (s.status !== 'לא פעיל' ? ' selected' : '') + '>פעיל</option><option' + (s.status === 'לא פעיל' ? ' selected' : '') + '>לא פעיל</option></select></label>' +
@@ -139,20 +145,30 @@
       window.UI.modal({
         title: existing ? 'עריכת תלמיד' : 'תלמיד חדש', bodyHTML: body, saveLabel: 'שמירה',
         onSave: async (m) => {
-          const name = m.querySelector('#f_name').value.trim();
+          const val = id => (m.querySelector(id).value || '').trim();
+          const name = val('#f_name');
           if (!name) { window.UI.toast('נא להזין שם', 'err'); return false; }
           const row = {
             name,
+            family: val('#f_family') || null,
+            tz: val('#f_tz') || null,
             class_id: m.querySelector('#f_class').value ? Number(m.querySelector('#f_class').value) : null,
-            parent_name: m.querySelector('#f_pname').value.trim(),
-            parent_phone: m.querySelector('#f_phone').value.trim(),
+            birthdate: val('#f_bdate') || null,
+            birthdate_heb: val('#f_bheb') || null,
+            parent_name: val('#f_pname'),
+            parent_phone: val('#f_phone'),
             status: m.querySelector('#f_status').value,
-            notes: m.querySelector('#f_notes').value.trim(),
+            notes: val('#f_notes'),
           };
           if (existing) row.id = existing.id;
-          const r = await saveStudent(row);
+          let r = await saveStudent(row);
+          // עמידות: אם עמודות משפחה/ת״ז/ת.לידה-עברי טרם קיימות ב-DB — נשמור בלי השדות המורחבים ולא ניפול
+          if (!r.ok && /family|tz|birthdate_heb|schema cache|does not exist|Could not find/i.test(r.error || '')) {
+            const fb = Object.assign({}, row); delete fb.family; delete fb.tz; delete fb.birthdate_heb;
+            r = await saveStudent(fb);
+            if (r.ok) window.UI.toast('נשמר — שדות משפחה/ת״ז/ת.לידה עברי יופעלו לאחר עדכון בסיס הנתונים', 'err');
+          } else if (r.ok) { window.UI.toast(existing ? 'עודכן' : 'נוסף תלמיד'); }
           if (!r.ok) { window.UI.toast('שגיאה: ' + (r.error || ''), 'err'); return false; }
-          window.UI.toast(existing ? 'עודכן' : 'נוסף תלמיד');
           if (existing) Object.assign(existing, row); else students.push((r.data && r.data[0]) || row);
           draw();
           return true;
@@ -171,9 +187,9 @@
     }
 
     function exportCsv() {
-      const head = ['שם', 'כיתה', 'הורה', 'טלפון', 'סטטוס'];
+      const head = ['משפחה', 'שם', 'ת״ז', 'כיתה', 'ת. לידה עברי', 'ת. לידה לועזי', 'הורה', 'טלפון', 'סטטוס'];
       const lines = [head.join(',')].concat(students.map(s =>
-        [s.name, classNameOf(classes, s.class_id), s.parent_name, s.parent_phone, s.status].map(v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(',')));
+        [s.family, s.name, s.tz, classNameOf(classes, s.class_id), s.birthdate_heb, s.birthdate, s.parent_name, s.parent_phone, s.status].map(v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(',')));
       const blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
       const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'students.csv'; a.click();
     }
