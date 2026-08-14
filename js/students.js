@@ -16,6 +16,9 @@
   async function removeStudent(id) { return window.store.remove('students', id); }
 
   const classNameOf = (classes, id) => { const c = classes.find(x => x.id === id); return c ? c.name : ''; };
+  // שם מלא בלי כפילות: אם name כבר מכיל את המשפחה (רשומות מיובאות) — מציגים name כמו שהוא;
+  // אחרת (רשומה חדשה: name=פרטי, family בנפרד) — מחברים "פרטי משפחה".
+  const fullName = s => { const f = (s.family || '').trim(), n = (s.name || '').trim(); if (!f) return n; if (!n) return f; return n.split(/\s+/).includes(f) ? n : (n + ' ' + f); };
 
   async function render(page) {
     const [students, classes] = await Promise.all([getStudents(), getClasses()]);
@@ -51,7 +54,7 @@
       const body = page.querySelector('#stuBody');
       body.innerHTML = rows.map(s =>
         '<tr>' +
-        '<td data-view="' + s.id + '" style="cursor:pointer" title="פתיחת כרטיס"><span class="ava">' + esc((s.name || '?').slice(0, 2)) + '</span> <span class="stu-name-link">' + esc([s.family, s.name].filter(Boolean).join(' ')) + '</span></td>' +
+        '<td data-view="' + s.id + '" style="cursor:pointer" title="פתיחת כרטיס"><span class="ava">' + esc((s.name || '?').slice(0, 2)) + '</span> <span class="stu-name-link">' + esc(fullName(s)) + '</span></td>' +
         '<td>' + esc(s.tz) + '</td>' +
         '<td>' + esc(classNameOf(classes, s.class_id)) + '</td>' +
         '<td>' + esc(s.parent_name) + '</td>' +
@@ -94,7 +97,7 @@
           : '<div class="tl-note" style="padding:6px 2px;font-size:.84rem">אין משימות משויכות</div>') + '</div>';
       m.el.querySelector('.modal-body').innerHTML =
         '<div class="det-head"><span class="ava lg">' + esc((s.name || '?').slice(0, 2)) + '</span>' +
-        '<div><div class="det-name">' + esc([s.family, s.name].filter(Boolean).join(' ')) + '</div><span class="chip ' + (s.status === 'פעיל' ? 'ok' : 'off') + '">' + esc(s.status || '') + '</span></div></div>' +
+        '<div><div class="det-name">' + esc(fullName(s)) + '</div><span class="chip ' + (s.status === 'פעיל' ? 'ok' : 'off') + '">' + esc(s.status || '') + '</span></div></div>' +
         '<div class="det-grid">' + row('שם משפחה', s.family) + row('תעודת זהות', s.tz) + row('כיתה', classNameOf(classes, s.class_id)) +
           row('ת. לידה עברי', s.birthdate_heb) + row('ת. לידה לועזי', s.birthdate) + row('שם אבא', s.parent_name) +
           (s.parent_phone ? '<div class="det-row"><span class="det-lbl">טלפון אבא</span><span class="det-val"><a href="tel:' + esc(s.parent_phone) + '">' + esc(s.parent_phone) + '</a></span></div>' : '') +
