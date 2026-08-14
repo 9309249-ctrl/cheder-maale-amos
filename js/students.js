@@ -45,13 +45,13 @@
       const cf = page.querySelector('#stuClass').value;
       const sf = page.querySelector('#stuStatus').value;
       let rows = students;
-      if (q) rows = rows.filter(s => [s.name, s.family, s.tz, s.parent_name, s.parent_phone].join(' ').includes(q));
+      if (q) rows = rows.filter(s => [s.name, s.family, s.tz, s.parent_name, s.parent_phone, s.mother_name, s.mother_phone, s.mother_email].join(' ').includes(q));
       if (cf) rows = rows.filter(s => String(s.class_id) === cf);
       if (sf) rows = rows.filter(s => (s.status || '') === sf);
       const body = page.querySelector('#stuBody');
       body.innerHTML = rows.map(s =>
         '<tr>' +
-        '<td><span class="ava">' + esc((s.name || '?').slice(0, 2)) + '</span> ' + esc([s.family, s.name].filter(Boolean).join(' ')) + '</td>' +
+        '<td data-view="' + s.id + '" style="cursor:pointer" title="פתיחת כרטיס"><span class="ava">' + esc((s.name || '?').slice(0, 2)) + '</span> <span class="stu-name-link">' + esc([s.family, s.name].filter(Boolean).join(' ')) + '</span></td>' +
         '<td>' + esc(s.tz) + '</td>' +
         '<td>' + esc(classNameOf(classes, s.class_id)) + '</td>' +
         '<td>' + esc(s.parent_name) + '</td>' +
@@ -96,8 +96,11 @@
         '<div class="det-head"><span class="ava lg">' + esc((s.name || '?').slice(0, 2)) + '</span>' +
         '<div><div class="det-name">' + esc([s.family, s.name].filter(Boolean).join(' ')) + '</div><span class="chip ' + (s.status === 'פעיל' ? 'ok' : 'off') + '">' + esc(s.status || '') + '</span></div></div>' +
         '<div class="det-grid">' + row('שם משפחה', s.family) + row('תעודת זהות', s.tz) + row('כיתה', classNameOf(classes, s.class_id)) +
-          row('ת. לידה עברי', s.birthdate_heb) + row('ת. לידה לועזי', s.birthdate) + row('שם הורה', s.parent_name) +
-          (s.parent_phone ? '<div class="det-row"><span class="det-lbl">טלפון</span><span class="det-val"><a href="tel:' + esc(s.parent_phone) + '">' + esc(s.parent_phone) + '</a></span></div>' : '') +
+          row('ת. לידה עברי', s.birthdate_heb) + row('ת. לידה לועזי', s.birthdate) + row('שם אבא', s.parent_name) +
+          (s.parent_phone ? '<div class="det-row"><span class="det-lbl">טלפון אבא</span><span class="det-val"><a href="tel:' + esc(s.parent_phone) + '">' + esc(s.parent_phone) + '</a></span></div>' : '') +
+          row('שם אמא', s.mother_name) +
+          (s.mother_phone ? '<div class="det-row"><span class="det-lbl">טלפון אמא</span><span class="det-val"><a href="tel:' + esc(s.mother_phone) + '">' + esc(s.mother_phone) + '</a></span></div>' : '') +
+          (s.mother_email ? '<div class="det-row"><span class="det-lbl">מייל אמא</span><span class="det-val"><a href="mailto:' + esc(s.mother_email) + '">' + esc(s.mother_email) + '</a></span></div>' : '') +
           row('הערות', s.notes) + '</div>' +
         '<div class="det-stats">' +
           '<div class="ds"><b>' + beh.length + '</b><span>דיווחים</span></div>' +
@@ -137,8 +140,11 @@
         '<label class="fld"><span>כיתה</span><select class="inp mb0" id="f_class"><option value="">—</option>' + classOpts + '</select></label>' +
         '<label class="fld"><span>ת. לידה עברי</span><input class="inp mb0" id="f_bheb" placeholder="למשל: כ״ג אדר תשפ״ד" value="' + esc(s.birthdate_heb) + '"></label>' +
         '<label class="fld"><span>ת. לידה לועזי</span><input class="inp mb0" id="f_bdate" type="date" value="' + esc(s.birthdate) + '"></label>' +
-        '<label class="fld"><span>שם הורה</span><input class="inp mb0" id="f_pname" value="' + esc(s.parent_name) + '"></label>' +
-        '<label class="fld"><span>טלפון הורה</span><input class="inp mb0" id="f_phone" value="' + esc(s.parent_phone) + '"></label>' +
+        '<label class="fld"><span>שם אבא</span><input class="inp mb0" id="f_pname" value="' + esc(s.parent_name) + '"></label>' +
+        '<label class="fld"><span>טלפון אבא</span><input class="inp mb0" id="f_phone" value="' + esc(s.parent_phone) + '"></label>' +
+        '<label class="fld"><span>שם אמא</span><input class="inp mb0" id="f_mname" value="' + esc(s.mother_name) + '"></label>' +
+        '<label class="fld"><span>טלפון אמא</span><input class="inp mb0" id="f_mphone" value="' + esc(s.mother_phone) + '"></label>' +
+        '<label class="fld"><span>מייל אמא</span><input class="inp mb0" id="f_memail" value="' + esc(s.mother_email) + '"></label>' +
         '<label class="fld"><span>סטטוס</span><select class="inp mb0" id="f_status"><option' + (s.status !== 'לא פעיל' ? ' selected' : '') + '>פעיל</option><option' + (s.status === 'לא פעיל' ? ' selected' : '') + '>לא פעיל</option></select></label>' +
         '<label class="fld fld-wide"><span>הערות</span><textarea class="inp mb0" id="f_notes" rows="2">' + esc(s.notes) + '</textarea></label>' +
         '</div>';
@@ -157,6 +163,9 @@
             birthdate_heb: val('#f_bheb') || null,
             parent_name: val('#f_pname'),
             parent_phone: val('#f_phone'),
+            mother_name: val('#f_mname'),
+            mother_phone: val('#f_mphone'),
+            mother_email: val('#f_memail'),
             status: m.querySelector('#f_status').value,
             notes: val('#f_notes'),
           };
@@ -187,9 +196,9 @@
     }
 
     function exportCsv() {
-      const head = ['משפחה', 'שם', 'ת״ז', 'כיתה', 'ת. לידה עברי', 'ת. לידה לועזי', 'הורה', 'טלפון', 'סטטוס'];
+      const head = ['משפחה', 'שם', 'ת״ז', 'כיתה', 'ת. לידה עברי', 'ת. לידה לועזי', 'שם אבא', 'טלפון אבא', 'שם אמא', 'טלפון אמא', 'מייל אמא', 'סטטוס'];
       const lines = [head.join(',')].concat(students.map(s =>
-        [s.family, s.name, s.tz, classNameOf(classes, s.class_id), s.birthdate_heb, s.birthdate, s.parent_name, s.parent_phone, s.status].map(v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(',')));
+        [s.family, s.name, s.tz, classNameOf(classes, s.class_id), s.birthdate_heb, s.birthdate, s.parent_name, s.parent_phone, s.mother_name, s.mother_phone, s.mother_email, s.status].map(v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(',')));
       const blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
       const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'students.csv'; a.click();
     }
