@@ -12,3 +12,7 @@ _continue_prompt.txt
 _schedule_task.ps1
 _continue_build.log
 _migrate_from_bht.*
+_CREDENTIALS.md
+_send_*.py
+_ask_*.py
+_proof*
