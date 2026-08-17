@@ -88,7 +88,10 @@
     // רמת גישה: אם המנהל הגדיר למשתמש override (full/readonly/writeonly) — גובר על ברירת-המחדל של התפקיד
     A.mode = (u.access_mode && ['full', 'readonly', 'writeonly'].includes(u.access_mode)) ? u.access_mode : caps.mode;
     A.scope = null;                    // null = הכל; מערך = כיתות מורשות
-    if (caps.scoped && window.store) {
+    // צוות עם גישה-מוגבלת (stu_names/card_own) מוגבל לכיתותיו כמו מחנך — גם אם תפקידו "מלמד".
+    // כך רב רואה רק את תלמידי הכיתות המשויכות לו, ובלי שיוך — לא רואה אף תלמיד.
+    const limitedStudentAccess = u.role !== 'מנהל' && Array.isArray(u.perms) && (u.perms.includes('stu_names') || u.perms.includes('card_own'));
+    if ((caps.scoped || limitedStudentAccess) && window.store) {
       try { const acc = await window.store.list('user_class_access', { eq: { user_id: u.id } }); A.scope = acc.map(x => x.class_id); } catch (_) { A.scope = []; }
     }
     // אכיפת מצב צפייה/הזנה דרך class על ה-body (CSS מסתיר כפתורי פעולה / רשימות)
@@ -127,7 +130,7 @@
         '</div>',
       onSave: async (mel) => {
         const p1 = mel.querySelector('#cp_new').value, p2 = mel.querySelector('#cp_conf').value;
-        if (!p1 || p1.length < 4) { window.UI.toast('סיסמה קצרה מדי (4 תווים לפחות)', 'err'); return false; }
+        if (!p1 || p1.length < 6) { window.UI.toast('סיסמה קצרה מדי (6 תווים לפחות)', 'err'); return false; }
         if (p1 !== p2) { window.UI.toast('הסיסמאות אינן תואמות', 'err'); return false; }
         if (DEMO) { await window.store.update('users', u.id, { password: p1 }); }
         else if (window.sb) { const { error } = await window.sb.auth.updateUser({ password: p1 }); if (error) { window.UI.toast('שגיאה: ' + error.message, 'err'); return false; } }

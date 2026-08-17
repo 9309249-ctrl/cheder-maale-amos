@@ -9,9 +9,9 @@
   async function getClasses() { return window.store.list('classes'); }
   async function getStudents() {
     let list = await window.store.list('students');
-    // מורה עם הרשאת גישה-מוגבלת (stu_names/card_own) רואה את כל השמות — לא מסננים לפי כיתות.
-    const viewAll = window.Auth && window.Auth.fullStudents && !window.Auth.fullStudents() && (window.Auth.cap('stu_names') || window.Auth.cap('card_own'));
-    if (!viewAll && window.Auth && window.Auth.scopeClasses) { const sc = window.Auth.scopeClasses(); if (sc) list = list.filter(s => sc.includes(s.class_id)); }
+    // כל משתמש מוגבל-היקף (מחנך/רב עם גישה-מוגבלת) רואה רק את תלמידי הכיתות המשויכות לו.
+    // scope=null → הכל (מנהל/מפקח). scope=[] (אין שיוך) → אף תלמיד.
+    if (window.Auth && window.Auth.scopeClasses) { const sc = window.Auth.scopeClasses(); if (sc) list = list.filter(s => sc.includes(s.class_id)); }
     return list;
   }
   async function saveStudent(row) { return row.id ? window.store.update('students', row.id, row) : window.store.add('students', row); }

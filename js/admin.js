@@ -174,6 +174,15 @@
           } else if (existing) {
             // ── חי: עדכון פרופיל קיים (שם/תפקיד/הרשאות) ──
             await window.store.update('profiles', u.id, { name, role, tz: phone, perms, access_mode });
+            // איפוס סיסמה בידי המנהל — רק אם הוזנה סיסמה. דורש 6+ תווים (מגבלת Supabase).
+            if (pw) {
+              if (pw.length < 6) { window.UI.toast('הסיסמה קצרה — נדרשים 6 תווים לפחות. שאר הפרטים נשמרו', 'err'); }
+              else {
+                const { data, error } = await window.sb.rpc('admin_set_password', { p_user: u.id, p_password: pw });
+                if (error || data === false) { window.UI.toast('הפרטים נשמרו אך שינוי הסיסמה נכשל' + (error ? ': ' + error.message : ''), 'err'); }
+                else { window.UI.toast('הסיסמה עודכנה'); }
+              }
+            }
             Object.assign(u, { name, role, tz: phone, perms, access_mode }); uid = u.id;
           } else {
             // ── חי: יצירת משתמש אמיתי דרך Supabase Auth (client זמני שלא נוגע בסשן המנהל) ──
