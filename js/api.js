@@ -33,6 +33,14 @@
     const { error } = await window.sb.from(table).delete().eq('id', id);
     return { ok: !error, error: error && error.message };
   }
+  // מחיקה לפי התאמת עמודות (לטבלאות בלי עמודת id — למשל user_class_access עם מפתח מורכב)
+  async function removeBy(table, match) {
+    if (DEMO) return { ok: true, demo: true };
+    let q = window.sb.from(table).delete();
+    for (const k in match) q = q.eq(k, match[k]);
+    const { error } = await q;
+    return { ok: !error, error: error && error.message };
+  }
 
-  window.db = { DEMO, list, insert, update, remove };
+  window.db = { DEMO, list, insert, update, remove, removeBy };
 })();

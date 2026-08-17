@@ -257,7 +257,10 @@
     draw();
   }
 
-  async function addClass(name) { const r = await window.store.add('classes', { name }); return { ok: r.ok, id: r.data && r.data[0] && r.data[0].id }; }
+  async function addClass(name) { const r = await window.store.add('classes', { name }); return { ok: r.ok, id: r.data && r.data[0] && r.data[0].id, error: r.error }; }
+  async function updateClass(id, name) { const r = await window.store.update('classes', id, { name }); return { ok: r.ok, error: r.error }; }
+  // מחיקת כיתה: ב-DB שיוכי-המשתמשים נמחקים ב-CASCADE, ותלמידים/נוכחות מתנתקים ב-SET NULL (לא נמחקים).
+  async function removeClass(id) { const r = await window.store.remove('classes', id); return { ok: r.ok, error: r.error }; }
   // מזהי התלמידים שהמשתמש הנוכחי מורשה לראות (null = הכל). לסינון רשומות בכל המודולים.
   async function accessibleIds() {
     const sc = (window.Auth && window.Auth.scopeClasses) ? window.Auth.scopeClasses() : null;
@@ -265,7 +268,7 @@
     const studs = await window.store.list('students');
     return studs.filter(s => sc.includes(s.class_id)).map(s => s.id);
   }
-  window.cv3Students = { getStudents: getStudents, getClasses: getClasses, addClass: addClass, accessibleIds: accessibleIds };
+  window.cv3Students = { getStudents: getStudents, getClasses: getClasses, addClass: addClass, updateClass: updateClass, removeClass: removeClass, accessibleIds: accessibleIds };
   window.PAGE_RENDERERS = window.PAGE_RENDERERS || {};
   window.PAGE_RENDERERS.students = render;
 })();

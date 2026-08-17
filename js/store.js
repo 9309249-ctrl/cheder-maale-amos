@@ -158,6 +158,11 @@
     if (DEMO) { mem[table] = (mem[table] || []).filter(x => x.id != id); return { ok: true }; }
     return window.db.remove(table, id);
   }
+  // מחיקה לפי התאמת עמודות — לטבלאות ללא עמודת id (מפתח מורכב), למשל user_class_access
+  async function removeBy(table, match) {
+    if (DEMO) { mem[table] = (mem[table] || []).filter(x => !Object.keys(match).every(k => x[k] == match[k])); return { ok: true }; }
+    return window.db.removeBy(table, match);
+  }
 
-  window.store = { DEMO, list, add, update, remove, byStudent, _mem: mem };
+  window.store = { DEMO, list, add, update, remove, removeBy, byStudent, _mem: mem };
 })();

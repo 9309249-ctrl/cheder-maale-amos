@@ -19,7 +19,7 @@
     const userClasses = uid => access.filter(a => a.user_id == uid).map(a => a.class_id);
     page.innerHTML =
       '<div class="page-head"><button class="back" onclick="showPage(\'home\')">→ חזרה לתפריט</button><h2>הגדרות והרשאות</h2></div>' +
-      '<div class="qr-card"><h3><i class="bi bi-mortarboard"></i> כיתות</h3><div id="clsList" class="chip-list"></div>' +
+      '<div class="qr-card"><h3><i class="bi bi-mortarboard"></i> כיתות</h3><p class="login-hint" style="margin:0 0 8px">ניתן להוסיף, לשנות שם ולמחוק כיתות. מחיקת כיתה אינה מוחקת תלמידים — היא רק מנתקת אותם מהכיתה.</p><div id="clsList"></div>' +
         '<div class="qr-grid" style="grid-template-columns:1fr auto;margin-top:10px"><input class="inp mb0" id="newCls" placeholder="שם כיתה חדשה"><button class="btn-primary sm" id="addCls"><i class="bi bi-plus-lg"></i> הוסף</button></div></div>' +
       '<div class="qr-card"><h3><i class="bi bi-tags"></i> קטגוריות התנהגות</h3><p class="login-hint" style="margin:0 0 8px">הקטגוריות מופיעות בבחירה בעת דיווח התנהגות. ניתן להוסיף, לערוך ולמחוק.</p><div id="catList"></div>' +
         '<div class="qr-grid" style="grid-template-columns:1fr auto;margin-top:10px"><input class="inp mb0" id="newCat" placeholder="שם קטגוריה חדשה"><button class="btn-primary sm" id="addCat"><i class="bi bi-plus-lg"></i> הוסף</button></div></div>' +
@@ -29,7 +29,44 @@
       '<div class="qr-card"><h3><i class="bi bi-bug"></i> בקשות תיקון</h3><div class="qr-grid" style="grid-template-columns:auto 2fr auto"><select class="inp mb0" id="fbKind"><option value="bug">באג</option><option value="idea">רעיון</option></select><input class="inp mb0" id="fbBody" placeholder="תיאור…"><button class="btn-primary sm" id="fbSave"><i class="bi bi-send"></i> שלח</button></div><div id="fbList" style="margin-top:10px"></div></div>' +
       '<div class="qr-card"><h3><i class="bi bi-info-circle"></i> אודות</h3><ul class="about-list"><li>מערכת מעקב — תלמוד תורה · גרסה 0.2</li><li>ארכיטקטורה: GitHub Pages + Supabase (RLS)</li><li>מוסד: <b id="aboutInst"></b></li></ul></div>';
 
-    const drawCls = () => { page.querySelector('#clsList').innerHTML = classes.map(c => '<span class="chip ok">' + esc(c.name) + '</span>').join('') || '<span class="tl-note">אין כיתות</span>'; };
+    function drawCls() {
+      page.querySelector('#clsList').innerHTML = classes.length ? classes.map(c =>
+        '<div class="tl-item"><span class="sev-dot mid"></span><div class="tl-main">' + esc(c.name) + '</div>' +
+        '<button class="mini" data-cledit="' + c.id + '" title="שינוי שם"><i class="bi bi-pencil"></i></button>' +
+        '<button class="mini danger" data-cldel="' + c.id + '" title="מחיקה"><i class="bi bi-trash"></i></button></div>').join('')
+        : '<div class="tl-note" style="padding:8px">אין כיתות עדיין</div>';
+      page.querySelectorAll('[data-cledit]').forEach(b => b.addEventListener('click', () => clsForm(classes.find(c => c.id == b.dataset.cledit))));
+      page.querySelectorAll('[data-cldel]').forEach(b => b.addEventListener('click', async () => {
+        const c = classes.find(x => x.id == b.dataset.cldel); if (!c) return;
+        if (!(await window.UI.confirm('למחוק את הכיתה "' + esc(c.name) + '"? התלמידים יישמרו אך ינותקו מהכיתה, ושיוכי הצוות לכיתה זו יימחקו.'))) return;
+        const r = await window.cv3Students.removeClass(c.id);
+        if (!r.ok) { window.UI.toast('שגיאה במחיקה: ' + (r.error || ''), 'err'); return; }
+        const i = classes.indexOf(c); if (i >= 0) classes.splice(i, 1);
+        for (let j = access.length - 1; j >= 0; j--) if (access[j].class_id == c.id) access.splice(j, 1);
+        drawCls(); drawUsers(); window.UI.toast('הכיתה נמחקה');
+      }));
+    }
+    function clsForm(existing) {
+      const c = existing || {};
+      window.UI.modal({
+        title: existing ? 'שינוי שם כיתה' : 'כיתה חדשה', saveLabel: 'שמירה',
+        bodyHTML: '<div class="form-grid"><label class="fld fld-wide"><span>שם הכיתה *</span><input class="inp mb0" id="cls_name" value="' + esc(c.name) + '"></label></div>',
+        onSave: async (mel) => {
+          const name = mel.querySelector('#cls_name').value.trim();
+          if (!name) { window.UI.toast('שם חובה', 'err'); return false; }
+          if (existing) {
+            const r = await window.cv3Students.updateClass(c.id, name);
+            if (!r.ok) { window.UI.toast('שגיאה: ' + (r.error || ''), 'err'); return false; }
+            c.name = name;
+          } else {
+            const r = await window.cv3Students.addClass(name);
+            if (!r.ok) { window.UI.toast('שגיאה: ' + (r.error || ''), 'err'); return false; }
+            classes.push({ id: r.id || Date.now(), name });
+          }
+          drawCls(); drawUsers(); window.UI.toast('נשמר'); return true;
+        },
+      });
+    }
     function drawCats() {
       page.querySelector('#catList').innerHTML = cats.length ? cats.map(c =>
         '<div class="tl-item"><span class="sev-dot mid"></span><div class="tl-main">' + esc(c.name) + '</div>' +
@@ -155,7 +192,8 @@
             users.push({ id: uid, name, phone, tz: phone, role, perms, access_mode });
           }
           const chosen = [...mel.querySelectorAll('#classGrid input:checked')].map(c => Number(c.value));
-          for (const a of access.filter(a => a.user_id == uid)) await window.store.remove('user_class_access', a.id);
+          // user_class_access = מפתח מורכב (user_id, class_id) ללא עמודת id → מוחקים לפי user_id ולא לפי id
+          await window.store.removeBy('user_class_access', { user_id: uid });
           for (let i = access.length - 1; i >= 0; i--) if (access[i].user_id == uid) access.splice(i, 1);
           for (const cid of chosen) { const r = await window.store.add('user_class_access', { user_id: uid, class_id: cid }); access.push((r.data && r.data[0]) || { user_id: uid, class_id: cid }); }
           drawUsers();
