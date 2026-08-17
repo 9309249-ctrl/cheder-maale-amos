@@ -74,8 +74,8 @@
       case 'מפקח':  return { perms: null, mode: 'readonly', scoped: false };       // הכל, ללא שינויים
       case 'מזכירה': return { perms: money, mode: 'full', scoped: false };          // כספים בלבד
       case 'מחנך':  return { perms: nonMoney, mode: 'full', scoped: true };        // הכל חוץ מכספים/ניהול, כיתתו בלבד
-      case 'מלמד':  return { perms: entry, mode: 'writeonly', scoped: false };      // הזנה בלבד (לכל התלמידים), בלי צפייה
-      default:      return { perms: null, mode: 'full', scoped: false };            // legacy מורה
+      case 'מלמד':  return { perms: entry, mode: 'writeonly', scoped: true };       // הזנה בלבד, כיתתו בלבד
+      default:      return { perms: null, mode: 'full', scoped: true };             // legacy מורה — כיתתו בלבד (ברירת מחדל מאובטחת)
     }
   }
   window.roleCaps = roleCaps;
@@ -87,11 +87,10 @@
     A.perms = (u.perms && u.perms.length) ? u.perms : caps.perms;
     // רמת גישה: אם המנהל הגדיר למשתמש override (full/readonly/writeonly) — גובר על ברירת-המחדל של התפקיד
     A.mode = (u.access_mode && ['full', 'readonly', 'writeonly'].includes(u.access_mode)) ? u.access_mode : caps.mode;
-    A.scope = null;                    // null = הכל; מערך = כיתות מורשות
-    // צוות עם גישה-מוגבלת (stu_names/card_own) מוגבל לכיתותיו כמו מחנך — גם אם תפקידו "מלמד".
-    // כך רב רואה רק את תלמידי הכיתות המשויכות לו, ובלי שיוך — לא רואה אף תלמיד.
-    const limitedStudentAccess = u.role !== 'מנהל' && Array.isArray(u.perms) && (u.perms.includes('stu_names') || u.perms.includes('card_own'));
-    if ((caps.scoped || limitedStudentAccess) && window.store) {
+    A.scope = null;                    // null = הכל (מנהל/מפקח/מזכירה); מערך = כיתות מורשות
+    // כל תפקיד מלמד/מחנך (caps.scoped) מוגבל לכיתות המשויכות לו בלבד. בלי שיוך כיתה — A.scope=[] → לא רואה אף תלמיד.
+    // תואם לאכיפת ה-RLS בשרת (has_class_access); כאן זו הגבלת התצוגה, החשובה במיוחד במצב הדגמה שאין בו RLS.
+    if (caps.scoped && window.store) {
       try { const acc = await window.store.list('user_class_access', { eq: { user_id: u.id } }); A.scope = acc.map(x => x.class_id); } catch (_) { A.scope = []; }
     }
     // אכיפת מצב צפייה/הזנה דרך class על ה-body (CSS מסתיר כפתורי פעולה / רשימות)
