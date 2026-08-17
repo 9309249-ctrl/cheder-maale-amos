@@ -38,14 +38,14 @@
           '<button class="btn-ghost sm" id="stuCsv"><i class="bi bi-download"></i> ייצוא CSV</button>' +
         '</div>') +
       '</div>' +
-      '<div class="toolbar">' +
+      '<div class="toolbar' + (limited ? ' entry-ui' : '') + '">' +
         '<input type="search" class="inp mb0" id="stuSearch" placeholder="' + (limited ? 'חיפוש תלמיד…' : 'חיפוש תלמיד / הורה / טלפון…') + '">' +
         '<select class="inp mb0" id="stuClass"><option value="">כל הכיתות</option>' +
           classes.map(c => '<option value="' + c.id + '">' + esc(c.name) + '</option>').join('') + '</select>' +
         '<select class="inp mb0" id="stuStatus"><option value="">כל הסטטוסים</option><option value="פעיל">פעיל</option><option value="לא פעיל">לא פעיל</option></select>' +
       '</div>' +
-      '<div class="count-line" id="stuCount"></div>' +
-      '<div class="table-wrap"><table class="tbl"><thead><tr>' +
+      '<div class="count-line' + (limited ? ' entry-ui' : '') + '" id="stuCount"></div>' +
+      '<div class="table-wrap' + (limited ? ' entry-ui' : '') + '"><table class="tbl"><thead><tr>' +
         (limited ? '<th>שם</th><th>כיתה</th><th>סטטוס</th>' : '<th>שם</th><th>ת״ז</th><th>כיתה</th><th>הורה</th><th>טלפון</th><th>סטטוס</th><th></th>') +
       '</tr></thead><tbody id="stuBody"></tbody></table></div>' +
       '<div id="stuEmpty" class="empty-state" hidden><i class="bi bi-people"></i><div>אין תלמידים להצגה</div></div>';
