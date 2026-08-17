@@ -8,11 +8,9 @@
   // כל הנתונים דרך המאגר המרכזי (store.js) — משותף עם שאר המודולים.
   async function getClasses() { return window.store.list('classes'); }
   async function getStudents() {
-    let list = await window.store.list('students');
-    // כל משתמש מוגבל-היקף (מחנך/רב עם גישה-מוגבלת) רואה רק את תלמידי הכיתות המשויכות לו.
-    // scope=null → הכל (מנהל/מפקח). scope=[] (אין שיוך) → אף תלמיד.
-    if (window.Auth && window.Auth.scopeClasses) { const sc = window.Auth.scopeClasses(); if (sc) list = list.filter(s => sc.includes(s.class_id)); }
-    return list;
+    // מודל עמנואל (2026-08-17): כל צוות רואה את כל התלמידים (שמות+פרטים).
+    // אין סינון כיתה בצד-לקוח — היקף הנתונים (דיווחים) נאכף ב-RLS בשרת.
+    return window.store.list('students');
   }
   async function saveStudent(row) { return row.id ? window.store.update('students', row.id, row) : window.store.add('students', row); }
   async function removeStudent(id) { return window.store.remove('students', id); }
@@ -261,13 +259,9 @@
   async function updateClass(id, name) { const r = await window.store.update('classes', id, { name }); return { ok: r.ok, error: r.error }; }
   // מחיקת כיתה: ב-DB שיוכי-המשתמשים נמחקים ב-CASCADE, ותלמידים/נוכחות מתנתקים ב-SET NULL (לא נמחקים).
   async function removeClass(id) { const r = await window.store.remove('classes', id); return { ok: r.ok, error: r.error }; }
-  // מזהי התלמידים שהמשתמש הנוכחי מורשה לראות (null = הכל). לסינון רשומות בכל המודולים.
-  async function accessibleIds() {
-    const sc = (window.Auth && window.Auth.scopeClasses) ? window.Auth.scopeClasses() : null;
-    if (!sc) return null;
-    const studs = await window.store.list('students');
-    return studs.filter(s => sc.includes(s.class_id)).map(s => s.id);
-  }
+  // מודל עמנואל: כל צוות רואה את כל התלמידים ומדווח על כולם; היקף הנתונים נאכף ב-RLS בשרת.
+  // null = "הכל" (כל המודולים כבר מתייחסים לכך). אין סינון תלמידים בצד-לקוח.
+  async function accessibleIds() { return null; }
   window.cv3Students = { getStudents: getStudents, getClasses: getClasses, addClass: addClass, updateClass: updateClass, removeClass: removeClass, accessibleIds: accessibleIds };
   window.PAGE_RENDERERS = window.PAGE_RENDERERS || {};
   window.PAGE_RENDERERS.students = render;
