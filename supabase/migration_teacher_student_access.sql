@@ -1,4 +1,9 @@
 -- migration_teacher_student_access.sql
+-- ⚠️ מבוטל — אין להריץ! הוחלף ב-migration_report_scoping.sql (2026-08-17).
+-- קובץ זה נתן גישה גורפת (can_list_students) שאיפשרה למורה לראות את כל תלמידי המוסד.
+-- הרצה חוזרת שלו תחזיר את הבאג. נשמר להיסטוריה בלבד.
+--
+-- migration_teacher_student_access.sql
 -- תיקון RLS: לאפשר למורה עם "גישה מוגבלת לתלמידים" (stu_names / card_own)
 -- לראות את רשימת שמות התלמידים ולדווח — גם ללא שיוך כיתה.
 -- הבעיה: stu_read/beh_* היו מותנים ב-has_class_access בלבד, ולמורים אין כיתות משויכות
