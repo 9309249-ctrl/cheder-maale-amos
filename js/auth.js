@@ -143,7 +143,7 @@
       let allowed;
       if (isAdmin) allowed = true;
       else if (m.adminOnly) allowed = false;
-      else if (A.perms) allowed = A.perms.includes(m.id);   // הרשאות גרנולריות שהמנהל הגדיר
+      else if (A.perms) allowed = A.perms.includes(m.id) || (m.id === 'students' && (A.perms.includes('stu_names') || A.perms.includes('card_own')));   // הרשאות גרנולריות שהמנהל הגדיר (כולל גישה מוגבלת לשמות/כרטיס)
       else allowed = true;                                   // ברירת מחדל — כל המסכים הלא-ניהוליים
       const tile = document.querySelector('.tile[data-id="' + m.id + '"]');
       if (tile) tile.style.display = allowed ? '' : 'none';
@@ -196,8 +196,12 @@
       if (u.role === 'מנהל') return true;
       const m = (window.MODULES || []).find(x => x.id === id);
       if (m && m.adminOnly) return false;
-      if (A.perms) return A.perms.includes(id);
+      if (A.perms) return A.perms.includes(id) || (id === 'students' && (A.perms.includes('stu_names') || A.perms.includes('card_own')));
       return true;
     },
+    // הרשאה מיוחדת (אסימון בתוך perms) — מנהל תמיד כן. שימוש: 'stu_names' / 'card_own'.
+    cap: function (token) { const u = A.currentUser; if (!u) return false; if (u.role === 'מנהל') return true; return !!(A.perms && A.perms.indexOf(token) !== -1); },
+    // גישה מלאה לתלמידים (כרטיס מלא + עריכה): מנהל/מפקח, או מי שיש לו מסך 'students' מלא (perms=null=ברירת מחדל של התפקיד).
+    fullStudents: function () { const u = A.currentUser; if (!u) return false; if (u.role === 'מנהל' || u.role === 'מפקח') return true; return !A.perms || A.perms.indexOf('students') !== -1; },
   };
 })();

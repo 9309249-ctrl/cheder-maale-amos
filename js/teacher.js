@@ -11,6 +11,7 @@
     const pickHtml = await window.cv3Picker.html('th');
     const u = window.currentUser || {};
     const isMechanech = u.role === 'מחנך';
+    const canStudents = window.Auth && window.Auth.canAccess && window.Auth.canAccess('students');
     host.innerHTML =
       '<div class="teacher-card"><h3><i class="bi bi-lightning-charge"></i> רישום מהיר לתלמיד</h3>' +
         '<div class="qr-grid" style="grid-template-columns:repeat(3,1fr) auto">' +
@@ -25,7 +26,7 @@
         '<button class="teacher-btn" data-go="behavior"><i class="bi bi-clipboard-check"></i><span>מעקב מלא</span></button>' +
         '<button class="teacher-btn" data-go="attendance"><i class="bi bi-calendar-check"></i><span>נוכחות</span></button>' +
         '<button class="teacher-btn" data-go="tests"><i class="bi bi-card-checklist"></i><span>מבחנים</span></button>' +
-        (isMechanech ? '<button class="teacher-btn" data-go="students"><i class="bi bi-people-fill"></i><span>התלמידים שלי</span></button>' : '') +
+        (canStudents ? '<button class="teacher-btn" data-go="students"><i class="bi bi-people-fill"></i><span>' + (isMechanech ? 'התלמידים שלי' : 'רשימת התלמידים') + '</span></button>' : '') +
       '</div>';
     const pick = window.cv3Picker.wire(host, 'th');
     host.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => window.showPage(b.dataset.go)));

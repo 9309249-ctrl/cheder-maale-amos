@@ -60,8 +60,12 @@
     }
     function drawUsers() {
       page.querySelector('#usrBody').innerHTML = users.map(u => {
+        const modIds = (window.MODULES || []).map(m => m.id);
+        const modCount = (u.perms || []).filter(p => modIds.includes(p)).length;
+        const hasLimited = (u.perms || []).some(p => p === 'stu_names' || p === 'card_own');
         const cls = (u.role === 'מנהל' ? '<span class="tl-note">כל הכיתות</span>' : (userClasses(u.id).map(clsName).filter(Boolean).join(', ') || '—')) +
-          (u.role !== 'מנהל' && u.perms && u.perms.length ? ' <span class="det-badge">' + u.perms.length + ' מסכים</span>' : '');
+          (u.role !== 'מנהל' && modCount ? ' <span class="det-badge">' + modCount + ' מסכים</span>' : '') +
+          (hasLimited ? ' <span class="det-badge">גישה מוגבלת</span>' : '');
         return '<tr><td>' + esc(u.name) + '</td><td>' + esc(u.phone || u.tz || '') + '</td><td><span class="chip ' + (u.role === 'מנהל' ? 'ok' : 'off') + '">' + esc(u.role) + '</span></td><td>' + cls + '</td>' +
           '<td class="row-act"><button class="mini" data-ucard="' + u.id + '" title="כרטיס איש צוות"><i class="bi bi-person-vcard"></i></button><button class="mini" data-uedit="' + u.id + '" title="עריכה"><i class="bi bi-pencil"></i></button><button class="mini danger" data-udel="' + u.id + '" title="מחיקה"><i class="bi bi-trash"></i></button></td></tr>';
       }).join('');
@@ -86,6 +90,10 @@
       const roleDefPerms = r => { try { const c = window.roleCaps && window.roleCaps(r); return c ? c.perms : null; } catch (_) { return null; } };
       const up = (existing && u.perms && u.perms.length) ? u.perms : (roleDefPerms(u.role || 'מחנך') || assignable.map(m => m.id));
       const permBoxes = assignable.map(m => '<label class="cb"><input type="checkbox" value="' + m.id + '"' + (up.includes(m.id) ? ' checked' : '') + '> ' + esc(m.label) + '</label>').join('');
+      // הרשאות מיוחדות (אסימונים בתוך perms, לא מסכים) — גישה מוגבלת לתלמידים למורה שאין לו את מסך "תלמידים" המלא
+      const SPECIAL = [['stu_names', 'רשימת שמות התלמידים — לצפייה ולבחירה בדיווח'], ['card_own', 'כרטיס תלמיד — פרטים בלבד + רק הדיווחים שהוא עצמו רשם']];
+      const curPerms = (existing && u.perms) ? u.perms : [];
+      const specBoxes = SPECIAL.map(s => '<label class="cb"><input type="checkbox" value="' + s[0] + '"' + (curPerms.includes(s[0]) ? ' checked' : '') + '> ' + esc(s[1]) + '</label>').join('');
       const mm = window.UI.modal({
         title: existing ? 'עריכת משתמש והרשאות' : 'משתמש חדש', saveLabel: 'שמירה',
         bodyHTML:
@@ -105,16 +113,20 @@
           '<div class="fld fld-wide"><span>מסכים מורשים <small style="font-weight:400;color:var(--muted)">— מנהל רואה הכל</small></span>' +
             '<div class="cb-grid" id="permGrid">' + permBoxes + '</div>' +
             '<div style="margin-top:7px;display:flex;gap:6px"><button type="button" class="btn-ghost sm" id="permAll">סמן הכל</button><button type="button" class="btn-ghost sm" id="permNone">נקה הכל</button></div></div>' +
+          '<div class="fld fld-wide"><span>גישה מוגבלת לתלמידים <small style="font-weight:400;color:var(--muted)">— למורה בלי מסך "תלמידים" מלא</small></span>' +
+            '<div class="cb-grid" id="specGrid">' + specBoxes + '</div></div>' +
           '</div>',
         onSave: async (mel) => {
           const name = mel.querySelector('#u_name').value.trim(), phone = mel.querySelector('#u_phone').value.trim(), pw = mel.querySelector('#u_pw').value, role = mel.querySelector('#u_role').value;
           const access_mode = mel.querySelector('#u_mode').value || null;   // null = ברירת מחדל לפי תפקיד
           if (!name || !phone) { window.UI.toast('שם וטלפון חובה', 'err'); return false; }
           const chosenPerms = [...mel.querySelectorAll('#permGrid input:checked')].map(c => c.value);
+          const specialTokens = [...mel.querySelectorAll('#specGrid input:checked')].map(c => c.value);
           const allIds = assignable.map(m => m.id);
           // perms=null → ברירת-מחדל לפי התפקיד (roleCaps); רק אם המנהל צמצם ידנית נשמור רשימה
           // שמירה מפורשת: מה שסומן = מה שהמשתמש רואה (מנהל=null=הכל). כך שליטה מדויקת מסך-מסך.
-          const perms = (role === 'מנהל') ? null : chosenPerms;
+          // אסימוני גישה-מוגבלת (stu_names/card_own) נשמרים לצד מזהי המסכים באותו מערך perms.
+          const perms = (role === 'מנהל') ? null : chosenPerms.concat(specialTokens);
           const LIVE = !!window.sb;
           let uid;
           if (!LIVE) {
@@ -155,7 +167,7 @@
       const pg = mm.el.querySelector('#permGrid'), roleSel = mm.el.querySelector('#u_role');
       mm.el.querySelector('#permAll').addEventListener('click', () => pg.querySelectorAll('input').forEach(c => c.checked = true));
       mm.el.querySelector('#permNone').addEventListener('click', () => pg.querySelectorAll('input').forEach(c => c.checked = false));
-      const toggleAdmin = () => { const dis = roleSel.value === 'מנהל'; mm.el.querySelectorAll('#permGrid input, #classGrid input, #permAll, #permNone').forEach(el => { el.disabled = dis; }); };
+      const toggleAdmin = () => { const dis = roleSel.value === 'מנהל'; mm.el.querySelectorAll('#permGrid input, #classGrid input, #specGrid input, #permAll, #permNone').forEach(el => { el.disabled = dis; }); };
       // בשינוי תפקיד — עדכן את הסימונים לברירת-המחדל של התפקיד החדש (המנהל יכול אחר-כך להתאים ידנית)
       roleSel.addEventListener('change', () => {
         toggleAdmin();

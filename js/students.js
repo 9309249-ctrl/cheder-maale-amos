@@ -9,7 +9,9 @@
   async function getClasses() { return window.store.list('classes'); }
   async function getStudents() {
     let list = await window.store.list('students');
-    if (window.Auth && window.Auth.scopeClasses) { const sc = window.Auth.scopeClasses(); if (sc) list = list.filter(s => sc.includes(s.class_id)); }
+    // מורה עם הרשאת גישה-מוגבלת (stu_names/card_own) רואה את כל השמות — לא מסננים לפי כיתות.
+    const viewAll = window.Auth && window.Auth.fullStudents && !window.Auth.fullStudents() && (window.Auth.cap('stu_names') || window.Auth.cap('card_own'));
+    if (!viewAll && window.Auth && window.Auth.scopeClasses) { const sc = window.Auth.scopeClasses(); if (sc) list = list.filter(s => sc.includes(s.class_id)); }
     return list;
   }
   async function saveStudent(row) { return row.id ? window.store.update('students', row.id, row) : window.store.add('students', row); }
@@ -22,24 +24,29 @@
 
   async function render(page) {
     const [students, classes] = await Promise.all([getStudents(), getClasses()]);
+    // מצב גישה: full=כרטיס מלא+עריכה; limited=מורה עם גישה מוגבלת (רשימת שמות/כרטיס-שלי בלבד)
+    const full = !window.Auth || window.Auth.fullStudents();
+    const canOwn = !full && window.Auth && window.Auth.cap('card_own');   // רשאי לפתוח כרטיס מצומצם (רק הדיווחים שלו)
+    const limited = !full;
     page.innerHTML =
       '<div class="page-head">' +
         '<button class="back" onclick="showPage(\'home\')">→ חזרה לתפריט</button>' +
         '<h2>תלמידים</h2>' +
+        (limited ? '' :
         '<div class="head-actions">' +
           '<button class="btn-primary sm" id="stuAdd"><i class="bi bi-plus-lg"></i> תלמיד חדש</button>' +
           '<button class="btn-ghost sm" id="stuCsv"><i class="bi bi-download"></i> ייצוא CSV</button>' +
-        '</div>' +
+        '</div>') +
       '</div>' +
       '<div class="toolbar">' +
-        '<input type="search" class="inp mb0" id="stuSearch" placeholder="חיפוש תלמיד / הורה / טלפון…">' +
+        '<input type="search" class="inp mb0" id="stuSearch" placeholder="' + (limited ? 'חיפוש תלמיד…' : 'חיפוש תלמיד / הורה / טלפון…') + '">' +
         '<select class="inp mb0" id="stuClass"><option value="">כל הכיתות</option>' +
           classes.map(c => '<option value="' + c.id + '">' + esc(c.name) + '</option>').join('') + '</select>' +
         '<select class="inp mb0" id="stuStatus"><option value="">כל הסטטוסים</option><option value="פעיל">פעיל</option><option value="לא פעיל">לא פעיל</option></select>' +
       '</div>' +
       '<div class="count-line" id="stuCount"></div>' +
       '<div class="table-wrap"><table class="tbl"><thead><tr>' +
-        '<th>שם</th><th>ת״ז</th><th>כיתה</th><th>הורה</th><th>טלפון</th><th>סטטוס</th><th></th>' +
+        (limited ? '<th>שם</th><th>כיתה</th><th>סטטוס</th>' : '<th>שם</th><th>ת״ז</th><th>כיתה</th><th>הורה</th><th>טלפון</th><th>סטטוס</th><th></th>') +
       '</tr></thead><tbody id="stuBody"></tbody></table></div>' +
       '<div id="stuEmpty" class="empty-state" hidden><i class="bi bi-people"></i><div>אין תלמידים להצגה</div></div>';
 
@@ -48,22 +55,30 @@
       const cf = page.querySelector('#stuClass').value;
       const sf = page.querySelector('#stuStatus').value;
       let rows = students;
-      if (q) rows = rows.filter(s => [s.name, s.family, s.tz, s.parent_name, s.parent_phone, s.mother_name, s.mother_phone, s.mother_email].join(' ').includes(q));
+      if (q) rows = limited
+        ? rows.filter(s => [s.name, s.family].join(' ').includes(q))
+        : rows.filter(s => [s.name, s.family, s.tz, s.parent_name, s.parent_phone, s.mother_name, s.mother_phone, s.mother_email].join(' ').includes(q));
       if (cf) rows = rows.filter(s => String(s.class_id) === cf);
       if (sf) rows = rows.filter(s => (s.status || '') === sf);
       const body = page.querySelector('#stuBody');
-      body.innerHTML = rows.map(s =>
-        '<tr>' +
-        '<td data-view="' + s.id + '" style="cursor:pointer" title="פתיחת כרטיס"><span class="ava">' + esc((s.name || '?').slice(0, 2)) + '</span> <span class="stu-name-link">' + esc(fullName(s)) + '</span></td>' +
-        '<td>' + esc(s.tz) + '</td>' +
-        '<td>' + esc(classNameOf(classes, s.class_id)) + '</td>' +
-        '<td>' + esc(s.parent_name) + '</td>' +
-        '<td>' + (s.parent_phone ? '<a href="tel:' + esc(s.parent_phone) + '">' + esc(s.parent_phone) + '</a>' : '') + '</td>' +
-        '<td><span class="chip ' + (s.status === 'פעיל' ? 'ok' : 'off') + '">' + esc(s.status || '') + '</span></td>' +
-        '<td class="row-act"><button class="mini" data-view="' + s.id + '" title="פרטים"><i class="bi bi-eye"></i></button>' +
-        '<button class="mini" data-edit="' + s.id + '" title="עריכה"><i class="bi bi-pencil"></i></button>' +
-        ((window.currentUser || {}).role === 'מנהל' ? '<button class="mini danger" data-del="' + s.id + '" title="מחיקה"><i class="bi bi-trash"></i></button>' : '') + '</td>' +
-        '</tr>').join('');
+      // רשומת שם: לחיצה פותחת כרטיס רק אם יש הרשאת כרטיס (full או card_own); אחרת רק שם ללא קישור
+      const nameCell = s => (full || canOwn)
+        ? '<td data-view="' + s.id + '" style="cursor:pointer" title="פתיחת כרטיס"><span class="ava">' + esc((s.name || '?').slice(0, 2)) + '</span> <span class="stu-name-link">' + esc(fullName(s)) + '</span></td>'
+        : '<td><span class="ava">' + esc((s.name || '?').slice(0, 2)) + '</span> ' + esc(fullName(s)) + '</td>';
+      body.innerHTML = rows.map(s => limited
+        ? '<tr>' + nameCell(s) +
+          '<td>' + esc(classNameOf(classes, s.class_id)) + '</td>' +
+          '<td><span class="chip ' + (s.status === 'פעיל' ? 'ok' : 'off') + '">' + esc(s.status || '') + '</span></td></tr>'
+        : '<tr>' + nameCell(s) +
+          '<td>' + esc(s.tz) + '</td>' +
+          '<td>' + esc(classNameOf(classes, s.class_id)) + '</td>' +
+          '<td>' + esc(s.parent_name) + '</td>' +
+          '<td>' + (s.parent_phone ? '<a href="tel:' + esc(s.parent_phone) + '">' + esc(s.parent_phone) + '</a>' : '') + '</td>' +
+          '<td><span class="chip ' + (s.status === 'פעיל' ? 'ok' : 'off') + '">' + esc(s.status || '') + '</span></td>' +
+          '<td class="row-act"><button class="mini" data-view="' + s.id + '" title="פרטים"><i class="bi bi-eye"></i></button>' +
+          '<button class="mini" data-edit="' + s.id + '" title="עריכה"><i class="bi bi-pencil"></i></button>' +
+          ((window.currentUser || {}).role === 'מנהל' ? '<button class="mini danger" data-del="' + s.id + '" title="מחיקה"><i class="bi bi-trash"></i></button>' : '') + '</td>' +
+          '</tr>').join('');
       page.querySelector('#stuCount').textContent = rows.length + ' מתוך ' + students.length + ' תלמידים';
       page.querySelector('#stuEmpty').hidden = rows.length > 0;
       body.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => openDetail(students.find(s => s.id == b.dataset.view))));
@@ -71,8 +86,38 @@
       body.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => del(students.find(s => s.id == b.dataset.del))));
     }
 
+    // כרטיס מצומצם: פרטי התלמיד + רק הדיווחים שהמורה המחובר עצמו רשם (בלי שאר המעקבים).
+    async function openOwnCard(s) {
+      const m = window.UI.modal({ title: 'כרטיס תלמיד', bodyHTML: '<div style="padding:26px;text-align:center;color:var(--muted)"><i class="bi bi-hourglass-split"></i> טוען…</div>' });
+      const [cats, beh] = await Promise.all([
+        window.store.list('categories'),
+        window.store.byStudent('behavior_events', s.id),
+      ]);
+      const uid = (window.currentUser || {}).id;
+      const mine = (beh || []).filter(e => e.created_by != null && String(e.created_by) === String(uid))
+        .slice().sort((a, b) => String(b.event_date || '').localeCompare(String(a.event_date || '')));
+      const catName = id => { const c = cats.find(x => x.id == id); return c ? c.name : ''; };
+      const sevc = x => x === 'גבוהה' ? 'hi' : x === 'נמוכה' ? 'lo' : 'mid';
+      const row = (lbl, val) => val ? '<div class="det-row"><span class="det-lbl">' + lbl + '</span><span class="det-val">' + esc(val) + '</span></div>' : '';
+      const li = (main, meta, dot) => '<div class="det-item">' + (dot ? '<span class="sev-dot ' + dot + '"></span>' : '') + '<span class="di-main">' + main + '</span><span class="di-meta">' + esc(meta || '') + '</span></div>';
+      m.el.querySelector('.modal-body').innerHTML =
+        '<div class="det-head"><span class="ava lg">' + esc((s.name || '?').slice(0, 2)) + '</span>' +
+        '<div><div class="det-name">' + esc(fullName(s)) + '</div><span class="chip ' + (s.status === 'פעיל' ? 'ok' : 'off') + '">' + esc(s.status || '') + '</span></div></div>' +
+        '<div class="det-grid">' + row('שם משפחה', s.family) + row('כיתה', classNameOf(classes, s.class_id)) +
+          row('ת. לידה עברי', s.birthdate_heb) + row('שם אבא', s.parent_name) +
+          (s.parent_phone ? '<div class="det-row"><span class="det-lbl">טלפון אבא</span><span class="det-val"><a href="tel:' + esc(s.parent_phone) + '">' + esc(s.parent_phone) + '</a></span></div>' : '') +
+          row('שם אמא', s.mother_name) +
+          (s.mother_phone ? '<div class="det-row"><span class="det-lbl">טלפון אמא</span><span class="det-val"><a href="tel:' + esc(s.mother_phone) + '">' + esc(s.mother_phone) + '</a></span></div>' : '') + '</div>' +
+        '<div class="det-sec"><h4><i class="bi bi-clipboard-check"></i> הדיווחים שלי <span class="det-badge">' + mine.length + '</span></h4>' +
+          (mine.length ? mine.slice(0, 30).map(e => li('<strong>' + esc(catName(e.category_id)) + '</strong>' + (e.note ? ' — ' + esc(e.note) : ''), e.event_date, sevc(e.severity))).join('')
+            : '<div class="tl-note" style="padding:6px 2px;font-size:.84rem">עדיין לא רשמת דיווחים לתלמיד זה</div>') + '</div>';
+    }
+
     async function openDetail(s) {
       if (!s) return;
+      // כרטיס מצומצם למורה עם הרשאת card_own: פרטי התלמיד בלבד + רק הדיווחים שהמורה עצמו רשם.
+      if (!full && canOwn) { await openOwnCard(s); return; }
+      if (!full) return;   // אין הרשאת כרטיס — לא נפתח (השם אינו לחיץ ממילא)
       const m = window.UI.modal({ title: 'כרטיס תלמיד', bodyHTML: '<div style="padding:26px;text-align:center;color:var(--muted)"><i class="bi bi-hourglass-split"></i> טוען…</div>' });
       const [cats, beh, att, tst, fnc, med, cnv, mtg, rdg, wrt, tui, tsk] = await Promise.all([
         window.store.list('categories'),
@@ -206,8 +251,8 @@
       const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'students.csv'; a.click();
     }
 
-    page.querySelector('#stuAdd').addEventListener('click', () => openForm(null));
-    page.querySelector('#stuCsv').addEventListener('click', exportCsv);
+    const addBtn = page.querySelector('#stuAdd'); if (addBtn) addBtn.addEventListener('click', () => openForm(null));
+    const csvBtn = page.querySelector('#stuCsv'); if (csvBtn) csvBtn.addEventListener('click', exportCsv);
     ['#stuSearch', '#stuClass', '#stuStatus'].forEach(sel => page.querySelector(sel).addEventListener('input', draw));
     draw();
   }
