@@ -146,7 +146,8 @@
           '<label class="fld"><span>רמת גישה <small style="font-weight:400;color:var(--muted)">— מה מותר לו לעשות</small></span><select class="inp mb0" id="u_mode">' +
             [['', 'ברירת מחדל (לפי תפקיד)'], ['full', 'גישה מלאה — צפייה + עריכה'], ['readonly', 'צפייה בלבד — בלי לערוך'], ['writeonly', 'הזנה בלבד — בלי לצפות']].map(o => '<option value="' + o[0] + '"' + (((u.access_mode || '') === o[0]) ? ' selected' : '') + '>' + o[1] + '</option>').join('') +
             '</select></label>' +
-          '<div class="fld fld-wide"><span>כיתות מורשות</span><div class="cb-grid" id="classGrid">' + (clsBoxes || '<span class="tl-note">אין כיתות — הוסף כיתה קודם</span>') + '</div></div>' +
+          '<div class="fld fld-wide"><span>כיתות מורשות <small style="font-weight:400;color:var(--muted)">— בלי שיוך כיתה, לא רואה אף תלמיד</small></span><div class="cb-grid" id="classGrid">' + (clsBoxes || '<span class="tl-note">אין כיתות — הוסף כיתה קודם</span>') + '</div>' +
+            (clsBoxes ? '<div style="margin-top:7px;display:flex;gap:6px"><button type="button" class="btn-ghost sm" id="clsAll">כל הכיתות</button><button type="button" class="btn-ghost sm" id="clsNone">נקה הכל</button></div>' : '') + '</div>' +
           '<div class="fld fld-wide"><span>מסכים מורשים <small style="font-weight:400;color:var(--muted)">— מנהל רואה הכל</small></span>' +
             '<div class="cb-grid" id="permGrid">' + permBoxes + '</div>' +
             '<div style="margin-top:7px;display:flex;gap:6px"><button type="button" class="btn-ghost sm" id="permAll">סמן הכל</button><button type="button" class="btn-ghost sm" id="permNone">נקה הכל</button></div></div>' +
@@ -214,7 +215,11 @@
       const pg = mm.el.querySelector('#permGrid'), roleSel = mm.el.querySelector('#u_role');
       mm.el.querySelector('#permAll').addEventListener('click', () => pg.querySelectorAll('input').forEach(c => c.checked = true));
       mm.el.querySelector('#permNone').addEventListener('click', () => pg.querySelectorAll('input').forEach(c => c.checked = false));
-      const toggleAdmin = () => { const dis = roleSel.value === 'מנהל'; mm.el.querySelectorAll('#permGrid input, #classGrid input, #specGrid input, #permAll, #permNone').forEach(el => { el.disabled = dis; }); };
+      const cg = mm.el.querySelector('#classGrid');
+      const clsAll = mm.el.querySelector('#clsAll'), clsNone = mm.el.querySelector('#clsNone');
+      if (clsAll) clsAll.addEventListener('click', () => cg.querySelectorAll('input').forEach(c => c.checked = true));
+      if (clsNone) clsNone.addEventListener('click', () => cg.querySelectorAll('input').forEach(c => c.checked = false));
+      const toggleAdmin = () => { const dis = roleSel.value === 'מנהל'; mm.el.querySelectorAll('#permGrid input, #classGrid input, #specGrid input, #permAll, #permNone, #clsAll, #clsNone').forEach(el => { el.disabled = dis; }); };
       // בשינוי תפקיד — עדכן את הסימונים לברירת-המחדל של התפקיד החדש (המנהל יכול אחר-כך להתאים ידנית)
       roleSel.addEventListener('change', () => {
         toggleAdmin();

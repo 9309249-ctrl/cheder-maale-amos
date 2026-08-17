@@ -263,6 +263,19 @@ create or replace function public.can_see_student(sid bigint) returns boolean
 $$ select public.is_admin()
      or exists (select 1 from public.students s where s.id = sid and public.has_class_access(s.class_id)) $$;
 
+-- perms של המשתמש הנוכחי (text[]; null → מערך ריק)
+create or replace function public.my_perms() returns text[]
+  language sql stable security definer set search_path = public as
+$$ select coalesce(perms, '{}'::text[]) from public.profiles where id = auth.uid() and active $$;
+
+-- "צוות מוגבל" = לא-מנהל עם אסימון גישה-מוגבלת (stu_names/card_own) אך בלי מסך התלמידים המלא.
+-- כזה רואה רק את הדיווחים שהוא עצמו רשם — לא של צוות/הנהלה אחרים.
+create or replace function public.is_limited_staff() returns boolean
+  language sql stable security definer set search_path = public as
+$$ select not public.is_admin()
+     and (('stu_names' = any(public.my_perms())) or ('card_own' = any(public.my_perms())))
+     and not ('students' = any(public.my_perms())) $$;
+
 -- ===== הפעלת RLS על כל הטבלאות =====
 alter table public.profiles          enable row level security;
 alter table public.classes           enable row level security;
@@ -315,15 +328,23 @@ drop policy if exists stu_del on public.students;
 create policy stu_del  on public.students for delete using (public.is_admin());
 
 -- ===== מקרו לוגי לטבלאות תלויות-תלמיד (מיושם פרטנית לכל טבלה) =====
--- behavior_events
+-- behavior_events — צוות מוגבל רואה/עורך רק את הדיווחים שהוא עצמו רשם; מנהל הכל; מורה רגיל את כיתתו.
 drop policy if exists beh_read on public.behavior_events;
-create policy beh_read on public.behavior_events for select using (public.can_see_student(student_id));
+create policy beh_read on public.behavior_events for select
+  using (public.is_admin() or created_by = auth.uid()
+         or (public.can_see_student(student_id) and not public.is_limited_staff()));
 drop policy if exists beh_ins on public.behavior_events;
 create policy beh_ins  on public.behavior_events for insert with check (public.can_see_student(student_id));
 drop policy if exists beh_upd on public.behavior_events;
-create policy beh_upd  on public.behavior_events for update using (public.can_see_student(student_id)) with check (public.can_see_student(student_id));
+create policy beh_upd  on public.behavior_events for update
+  using (public.is_admin() or created_by = auth.uid()
+         or (public.can_see_student(student_id) and not public.is_limited_staff()))
+  with check (public.is_admin() or created_by = auth.uid()
+         or (public.can_see_student(student_id) and not public.is_limited_staff()));
 drop policy if exists beh_del on public.behavior_events;
-create policy beh_del  on public.behavior_events for delete using (public.can_see_student(student_id));
+create policy beh_del  on public.behavior_events for delete
+  using (public.is_admin() or created_by = auth.uid()
+         or (public.can_see_student(student_id) and not public.is_limited_staff()));
 -- attendance
 drop policy if exists att_read on public.attendance;
 create policy att_read on public.attendance for select using (public.can_see_student(student_id));
@@ -452,3 +473,21 @@ grant execute on function public.get_signing(text)              to anon, authent
 grant execute on function public.get_form(bigint)               to anon, authenticated;
 grant execute on function public.submit_signature(text, text)   to anon, authenticated;
 grant execute on function public.submit_general(bigint, text)   to anon, authenticated;
+
+-- ===== שינוי סיסמה =====
+-- מנהל בלבד מאפס סיסמה של משתמש אחר. משתמש רגיל משנה את סיסמתו דרך auth.updateUser (client).
+create or replace function public.admin_set_password(p_user uuid, p_password text)
+  returns boolean language plpgsql security definer
+  set search_path = public, auth, extensions as
+$$
+begin
+  if not public.is_admin() then raise exception 'not authorized'; end if;
+  if length(coalesce(p_password, '')) < 6 then raise exception 'password too short'; end if;
+  update auth.users
+     set encrypted_password = extensions.crypt(p_password, extensions.gen_salt('bf')),
+         updated_at = now()
+   where id = p_user;
+  return found;
+end $$;
+revoke all on function public.admin_set_password(uuid, text) from public, anon;
+grant execute on function public.admin_set_password(uuid, text) to authenticated;
