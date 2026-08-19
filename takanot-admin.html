@@ -118,6 +118,7 @@
         <button class="btn btn-outline-primary" onclick="printOne(currentReq && currentReq.מזהה_בקשה)"><i class="bi bi-printer"></i> הדפס</button>
         <button class="btn btn-outline-success" onclick="setStatus('מאושר')">אישור</button>
         <button class="btn btn-outline-danger" onclick="setStatus('נדחה')">דחייה</button>
+        <button class="btn btn-danger admin-only" id="btn-delete-req" style="display:none" onclick="deleteReq(currentReq && currentReq['מזהה_בקשה'])"><i class="bi bi-trash"></i> מחיקה</button>
         <button class="btn btn-secondary" data-bs-dismiss="modal">סגירה</button>
       </div>
     </div>
@@ -133,14 +134,18 @@
 <script src="js/takanot-supabase.js"></script>
 <script>
 let allRows = [];
+// מחיקה מותרת למנהל בלבד (RLS: takanot_admin_delete). נבדק מול הפרופיל של המשתמש המחובר.
+let canDelete = false;
 let currentReq = null;
 
 // האבטחה עברה ל-RLS בצד-שרת: הקריאה נפתחת רק ל-session מאומת של צוות (מנהל/מזכירות).
 // אין יותר PIN בצד-לקוח ואין טוקן. המסך פועל כשנפתח בתוך המערכת המחוברת (session נשמר
 // ב-localStorage מאותו origin); גישה ישירה ללא התחברות תחזיר רשימה ריקה מ-RLS.
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('login-pane').style.display = 'none';
   document.getElementById('main-pane').style.display = 'block';
+  try { canDelete = !!(window.TakanotSB && window.TakanotSB.enabled() && await window.TakanotSB.isAdmin()); } catch (_) { canDelete = false; }
+  document.querySelectorAll('.admin-only').forEach(el => { el.style.display = canDelete ? '' : 'none'; });
   loadRequests();
 });
 
@@ -241,6 +246,7 @@ function renderTable() {
       <td class="row-actions">
         <button class="btn btn-sm btn-outline-primary btn-open" title="צפייה"><i class="bi bi-eye"></i></button>
         <button class="btn btn-sm btn-outline-secondary btn-print" title="הדפסה"><i class="bi bi-printer"></i></button>
+        ${canDelete ? '<button class="btn btn-sm btn-outline-danger btn-del" title="מחיקה"><i class="bi bi-trash"></i></button>' : ''}
       </td>
     </tr>`;
   }).join('');
@@ -251,6 +257,7 @@ function renderTable() {
     const id = tr.dataset.id;
     if (btn.classList.contains('btn-open')) openReq(id);
     else if (btn.classList.contains('btn-print')) printOne(id);
+    else if (btn.classList.contains('btn-del')) deleteReq(id);
   };
 }
 
@@ -349,6 +356,20 @@ async function setStatus(newStatus) {
     await loadRequests();
     bootstrap.Modal.getInstance(document.getElementById('modal-view'))?.hide();
   } catch (e) { alert('שגיאה: ' + e.message); }
+}
+
+// מחיקת בקשה לצמיתות — כולל המסמכים שצורפו. מנהל בלבד (RLS), עם אישור מפורש.
+async function deleteReq(id) {
+  if (!id) return;
+  const r = allRows.find(x => x['מזהה_בקשה'] === id);
+  if (!r) return;
+  if (!confirm(`למחוק לצמיתות את הבקשה של משפחת ${r['שם_משפחה'] || ''} (${id})? המסמכים שצורפו יימחקו גם הם. הפעולה אינה הפיכה.`)) return;
+  try {
+    await window.TakanotSB.remove(r._id, r._docs);
+    bootstrap.Modal.getInstance(document.getElementById('modal-view'))?.hide();
+    allRows = allRows.filter(x => x['מזהה_בקשה'] !== id);
+    renderTable(); updateStats();
+  } catch (e) { alert('שגיאה במחיקה: ' + e.message); }
 }
 
 function exportCSV() {

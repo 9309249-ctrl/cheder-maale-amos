@@ -15,6 +15,7 @@
       window.store.list('audit_log'), window.store.list('feedback'),
       window.store.list('categories'),
     ]);
+    let readCats = await window.store.list('reading_categories');
     const clsName = id => { const c = classes.find(x => x.id == id); return c ? c.name : ''; };
     const userClasses = uid => access.filter(a => a.user_id == uid).map(a => a.class_id);
     page.innerHTML =
@@ -23,6 +24,8 @@
         '<div class="qr-grid" style="grid-template-columns:1fr auto;margin-top:10px"><input class="inp mb0" id="newCls" placeholder="שם כיתה חדשה"><button class="btn-primary sm" id="addCls"><i class="bi bi-plus-lg"></i> הוסף</button></div></div>' +
       '<div class="qr-card"><h3><i class="bi bi-tags"></i> קטגוריות התנהגות</h3><p class="login-hint" style="margin:0 0 8px">הקטגוריות מופיעות בבחירה בעת דיווח התנהגות. ניתן להוסיף, לערוך ולמחוק.</p><div id="catList"></div>' +
         '<div class="qr-grid" style="grid-template-columns:1fr auto;margin-top:10px"><input class="inp mb0" id="newCat" placeholder="שם קטגוריה חדשה"><button class="btn-primary sm" id="addCat"><i class="bi bi-plus-lg"></i> הוסף</button></div></div>' +
+      '<div class="qr-card"><div class="card-h-row"><h3><i class="bi bi-book-half"></i> עמודות מעקב קריאה</h3><button class="btn-primary sm" id="raCatsBtn"><i class="bi bi-sliders"></i> עריכת עמודות</button></div>' +
+        '<p class="login-hint" style="margin:0 0 8px">אלו העמודות בטבלת "מעקב קריאה", והציון בכל עמודה נרשם חופשי בין 1 ל-100. ניתן להוסיף עמודות, לשנות שמות ולסדר.</p><div id="raCatsList"></div></div>' +
       '<div class="qr-card"><div class="card-h-row"><h3><i class="bi bi-people"></i> צוות והרשאות</h3><button class="btn-primary sm" id="usrAdd"><i class="bi bi-person-plus"></i> משתמש חדש</button></div>' +
         '<div class="table-wrap"><table class="tbl"><thead><tr><th>שם</th><th>טלפון</th><th>תפקיד</th><th>כיתות</th><th></th></tr></thead><tbody id="usrBody"></tbody></table></div></div>' +
       '<div class="qr-card"><h3><i class="bi bi-clock-history"></i> יומן פעולות</h3><div id="audList"></div></div>' +
@@ -95,6 +98,15 @@
         },
       });
     }
+    function drawReadCats() {
+      const host = page.querySelector('#raCatsList'); if (!host) return;
+      const list = (readCats || []).slice().sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0) || a.id - b.id);
+      host.innerHTML = list.length ? list.map(c =>
+        '<div class="tl-item"><span class="sev-dot ' + (c.active === false ? 'low' : 'mid') + '"></span><div class="tl-main">' + esc(c.name) +
+        (c.active === false ? ' <span class="det-badge">מוסתרת</span>' : '') + '</div></div>').join('')
+        : '<div class="tl-note" style="padding:8px">אין עמודות עדיין</div>';
+    }
+
     function drawUsers() {
       page.querySelector('#usrBody').innerHTML = users.map(u => {
         const modIds = (window.MODULES || []).map(m => m.id);
@@ -103,8 +115,13 @@
         const cls = (u.role === 'מנהל' ? '<span class="tl-note">כל הכיתות</span>' : (userClasses(u.id).map(clsName).filter(Boolean).join(', ') || '—')) +
           (u.role !== 'מנהל' && modCount ? ' <span class="det-badge">' + modCount + ' מסכים</span>' : '') +
           (hasLimited ? ' <span class="det-badge">גישה מוגבלת</span>' : '');
-        return '<tr><td>' + esc(u.name) + '</td><td>' + esc(u.phone || u.tz || '') + '</td><td><span class="chip ' + (u.role === 'מנהל' ? 'ok' : 'off') + '">' + esc(u.role) + '</span></td><td>' + cls + '</td>' +
-          '<td class="row-act"><button class="mini" data-ucard="' + u.id + '" title="כרטיס איש צוות"><i class="bi bi-person-vcard"></i></button><button class="mini" data-uedit="' + u.id + '" title="עריכה"><i class="bi bi-pencil"></i></button><button class="mini danger" data-udel="' + u.id + '" title="מחיקה"><i class="bi bi-trash"></i></button></td></tr>';
+        // משתמש מושבת נראה עד היום זהה לפעיל — והמנהל לא הבין למה הוא "לא רואה כלום".
+        // עכשיו הוא מסומן במפורש, ואפשר להחזיר אותו לפעילות בלחיצה.
+        const off = u.active === false;
+        return '<tr' + (off ? ' style="opacity:.62"' : '') + '><td>' + esc(u.name) + (off ? ' <span class="det-badge">מושבת</span>' : '') + '</td><td>' + esc(u.phone || u.tz || '') + '</td><td><span class="chip ' + (u.role === 'מנהל' ? 'ok' : 'off') + '">' + esc(u.role) + '</span></td><td>' + cls + '</td>' +
+          '<td class="row-act"><button class="mini" data-ucard="' + u.id + '" title="כרטיס איש צוות"><i class="bi bi-person-vcard"></i></button><button class="mini" data-uedit="' + u.id + '" title="עריכה"><i class="bi bi-pencil"></i></button>' +
+          (off ? '<button class="mini" data-uon="' + u.id + '" title="החזרה לפעילות"><i class="bi bi-person-check"></i></button>'
+               : '<button class="mini danger" data-udel="' + u.id + '" title="השבתה"><i class="bi bi-trash"></i></button>') + '</td></tr>';
       }).join('');
       page.querySelectorAll('[data-ucard]').forEach(b => b.addEventListener('click', () => { if (window.cv3StaffCard) window.cv3StaffCard.open(b.dataset.ucard); }));
       page.querySelectorAll('[data-uedit]').forEach(b => b.addEventListener('click', () => openUserForm(users.find(u => u.id == b.dataset.uedit))));
@@ -113,9 +130,20 @@
         if (u.role === 'מנהל' && users.filter(x => x.role === 'מנהל').length <= 1) { window.UI.toast('חייב להישאר מנהל אחד לפחות', 'err'); return; }
         const LIVE = !!window.sb;
         if (!(await window.UI.confirm(LIVE ? ('להשבית את המשתמש "' + esc(u.name) + '"? (לא ניתן למחוק לגמרי משתמש מאומת — הוא יושבת ולא יוכל להיכנס)') : ('למחוק את המשתמש "' + esc(u.name) + '"?')))) return;
-        if (LIVE) { await window.store.update('profiles', u.id, { active: false }); const i = users.indexOf(u); if (i >= 0) users.splice(i, 1); }
+        if (LIVE) {
+          // לא מסירים מהרשימה — משאירים מסומן "מושבת" כדי שיהיה אפשר להחזיר אותו
+          const r = await window.store.update('profiles', u.id, { active: false });
+          if (!r || r.ok === false) { window.UI.toast('ההשבתה נכשלה' + (r && r.error ? ': ' + r.error : ''), 'err'); return; }
+          u.active = false;
+        }
         else { await window.store.remove('users', u.id); const i = users.indexOf(u); if (i >= 0) users.splice(i, 1); }
-        drawUsers(); window.UI.toast(LIVE ? 'המשתמש הושבת' : 'נמחק');
+        drawUsers(); window.UI.toast(LIVE ? 'המשתמש הושבת — הוא לא יוכל להיכנס עד להחזרתו לפעילות' : 'נמחק');
+      }));
+      page.querySelectorAll('[data-uon]').forEach(b => b.addEventListener('click', async () => {
+        const u = users.find(x => x.id == b.dataset.uon); if (!u) return;
+        const r = await window.store.update('profiles', u.id, { active: true });
+        if (!r || r.ok === false) { window.UI.toast('ההפעלה נכשלה' + (r && r.error ? ': ' + r.error : ''), 'err'); return; }
+        u.active = true; drawUsers(); window.UI.toast('המשתמש הוחזר לפעילות');
       }));
     }
     function openUserForm(existing) {
@@ -192,14 +220,24 @@
             const email = phone + '@bht.co.il';
             const password = (pw && pw.length >= 6) ? pw : phone;   // Supabase דורש 6+ תווים; ברירת מחדל = הטלפון
             if (password.length < 6) { window.UI.toast('הטלפון חייב לפחות 6 ספרות (או הזן סיסמה 6+ תווים)', 'err'); return false; }
+            // משתמש שהושבת בעבר עדיין קיים ב-Auth → signUp ייכשל. במקום "לא נוצר", מחזירים אותו לפעילות.
+            const prev = users.find(x => String(x.email || '').toLowerCase() === email.toLowerCase());
             const { data, error } = await tmp.auth.signUp({ email, password, options: { data: { name } } });
-            if (error) { window.UI.toast('שגיאה ביצירת משתמש: ' + error.message, 'err'); return false; }
             uid = data && data.user && data.user.id;
-            if (!uid) { window.UI.toast('המשתמש לא נוצר (אולי המספר כבר קיים)', 'err'); return false; }
-            await new Promise(r => setTimeout(r, 500));   // המתנה לטריגר שיוצר את הפרופיל
-            const upd = await window.store.update('profiles', uid, { name, role, tz: phone, perms, access_mode });
-            if (upd && upd.ok === false) { window.UI.toast('המשתמש נוצר אך עדכון הפרופיל נכשל: ' + (upd.error || ''), 'err'); }
-            users.push({ id: uid, name, phone, tz: phone, role, perms, access_mode });
+            if ((error || !uid) && prev) {
+              const upd0 = await window.store.update('profiles', prev.id, { name, role, tz: phone, perms, access_mode, active: true });
+              if (!upd0 || upd0.ok === false) { window.UI.toast('שחזור המשתמש הקיים נכשל: ' + ((upd0 && upd0.error) || ''), 'err'); return false; }
+              uid = prev.id;
+              Object.assign(prev, { name, role, tz: phone, phone, perms, access_mode, active: true });
+              window.UI.toast('המספר כבר היה קיים — המשתמש הוחזר לפעילות (הסיסמה הקודמת נשמרה)');
+            } else if (error) { window.UI.toast('שגיאה ביצירת משתמש: ' + error.message, 'err'); return false; }
+            else if (!uid) { window.UI.toast('המשתמש לא נוצר (אולי המספר כבר קיים)', 'err'); return false; }
+            else {
+              await new Promise(r => setTimeout(r, 500));   // המתנה לטריגר שיוצר את הפרופיל
+              const upd = await window.store.update('profiles', uid, { name, role, tz: phone, perms, access_mode, active: true });
+              if (upd && upd.ok === false) { window.UI.toast('המשתמש נוצר אך עדכון הפרופיל נכשל: ' + (upd.error || ''), 'err'); }
+              users.push({ id: uid, email, name, phone, tz: phone, role, perms, access_mode, active: true });
+            }
           }
           const chosen = [...mel.querySelectorAll('#classGrid input:checked')].map(c => Number(c.value));
           // user_class_access = מפתח מורכב (user_id, class_id) ללא עמודת id → מוחקים לפי user_id ולא לפי id
@@ -254,7 +292,13 @@
       const r = await window.store.add('feedback', { kind, body });
       feedbacks.push((r.data && r.data[0]) || { kind, body }); page.querySelector('#fbBody').value = ''; drawFb(); window.UI.toast('נשלח, תודה');
     });
-    drawCls(); drawCats(); drawUsers(); drawFb();
+    const raBtn = page.querySelector('#raCatsBtn');
+    if (raBtn) raBtn.addEventListener('click', () => {
+      if (!window.cv3ReadAssess) { window.UI.toast('מודול מעקב הקריאה לא נטען', 'err'); return; }
+      window.cv3ReadAssess.editCategories(async () => { readCats = await window.store.list('reading_categories'); drawReadCats(); });
+    });
+
+    drawCls(); drawCats(); drawReadCats(); drawUsers(); drawFb();
   }
 
   const PAY_METHODS = ['מזומן', 'העברה', 'בית ספר', 'נדרים פלוס'];

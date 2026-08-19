@@ -165,7 +165,18 @@
     let role = 'צוות', name = user.email, perms = null, access_mode = null;
     try {
       const { data } = await window.sb.from('profiles').select('*').eq('id', user.id).single();
-      if (data) { role = data.role || 'צוות'; name = data.name || user.email; perms = data.perms || null; access_mode = data.access_mode || null; }
+      if (data) {
+        // משתמש מושבת עובר את ה-Auth אבל ה-RLS חוסם לו כל נתון — עד היום הוא ראה
+        // מערכת ריקה בלי הסבר (זה מה שקרה למחנך של כיתה א'). עכשיו נאמר לו למה.
+        if (data.active === false) {
+          try { await window.sb.auth.signOut(); } catch (_) {}
+          A.currentUser = null; window.currentUser = null; renderUserInfo();
+          if (window.UI) window.UI.toast('החשבון מושבת. פנה למנהל המערכת כדי להחזירו לפעילות.', 'err');
+          if (window.showPage) window.showPage('login');
+          return;
+        }
+        role = data.role || 'צוות'; name = data.name || user.email; perms = data.perms || null; access_mode = data.access_mode || null;
+      }
     } catch (_) {}
     setUser({ id: user.id, email: user.email, name, role, perms, access_mode });
   }

@@ -52,6 +52,30 @@
       return data || [];
     },
 
+    // האם המשתמש המחובר הוא מנהל (רק מנהל רשאי למחוק — RLS: takanot_admin_delete).
+    async isAdmin() {
+      try {
+        const { data: ud } = await sb().auth.getUser();
+        const uid = ud && ud.user && ud.user.id;
+        if (!uid) return false;
+        const { data, error } = await sb().from('profiles').select('role, active').eq('id', uid).single();
+        if (error || !data) return false;
+        return data.active !== false && data.role === 'מנהל';
+      } catch (_) { return false; }
+    },
+
+    // מחיקת בקשה לצמיתות: קודם השורה (עם אימות שה-RLS לא חסם בשקט), ואז המסמכים.
+    // הסדר חשוב — אם נמחקו המסמכים והשורה נחסמה, נשארת בקשה בלי מסמכים.
+    async remove(id, docs) {
+      const { data, error } = await sb().from('takanot_requests').delete().eq('id', id).select('id');
+      if (error) throw error;
+      if (!data || !data.length) throw new Error('אין הרשאה למחוק בקשה (מנהל בלבד)');
+      const paths = [];
+      const d = docs || {};
+      for (const slot in d) (d[slot] || []).forEach(p => { if (p) paths.push(p); });
+      if (paths.length) { try { await sb().storage.from('takanot-docs').remove(paths); } catch (_) { /* השורה כבר נמחקה; קובץ יתום לא חוסם */ } }
+    },
+
     async updateStatus(id, status, note) {
       const patch = { status: status };
       if (note != null) patch.admin_note = note;
