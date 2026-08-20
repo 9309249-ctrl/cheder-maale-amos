@@ -49,5 +49,15 @@
     });
   }
 
-  window.UI = { modal, toast, confirm, el: elc };
+  // שם מלא של תלמיד — מקור אמת יחיד. תלמידים מיובאים נשמרו עם name שכבר כולל את המשפחה,
+  // ולכן שרשור עיוור של family+name יצר "בלאק דוד בלאק" (גם באישור לימודים רשמי).
+  function fullName(s) {
+    if (!s) return '';
+    const nm = String(s.name || '').trim(), fam = String(s.family || '').trim();
+    if (!fam) return nm;
+    if (!nm) return fam;
+    return nm.indexOf(fam) > -1 ? nm : fam + ' ' + nm;
+  }
+
+  window.UI = { modal, toast, confirm, el: elc, fullName: fullName };
 })();
