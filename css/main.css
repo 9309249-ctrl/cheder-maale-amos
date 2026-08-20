@@ -169,6 +169,9 @@ table.tbl{width:100%; border-collapse:collapse; min-width:560px}
 table.tbl th,table.tbl td{text-align:start; padding:11px 14px; border-bottom:1px solid var(--line); font-size:.9rem; vertical-align:middle}
 table.tbl thead th{font-size:.74rem; letter-spacing:.04em; color:var(--muted); text-transform:uppercase; background:var(--bg)}
 table.tbl tbody tr:last-child td{border-bottom:none}
+/* שורת ממוצע כיתתי במעקב קריאה — מודגשת ומופרדת מגוף הטבלה */
+table.tbl tfoot td{background:var(--bg); font-weight:800; border-top:2px solid var(--line); border-bottom:none}
+
 table.tbl tbody tr:hover{background:var(--bg)}
 .ava{display:inline-grid; place-items:center; width:30px; height:30px; border-radius:9px; background:color-mix(in srgb,var(--primary) 12%,transparent); color:var(--primary); font-weight:800; font-size:.72rem; margin-inline-end:6px}
 .chip{font-size:.72rem; font-weight:700; padding:2px 9px; border-radius:999px}

@@ -96,7 +96,30 @@
           cs.map(c => '<td>' + (sc[c.id] != null ? '<b>' + esc(sc[c.id]) + '</b>' : '<span style="color:var(--muted)">—</span>') + '</td>').join('') +
           '<td class="row-act"><button class="mini" data-add="' + s.id + '" title="הערכה חדשה"><i class="bi bi-plus-lg"></i></button></td></tr>';
       }).join('');
-      grid.innerHTML = '<table class="tbl"><thead>' + head + '</thead><tbody>' + (rows || '<tr><td colspan="' + (cs.length + 2) + '">אין תלמידים בכיתה</td></tr>') + '</tbody></table>';
+      // ── שורת סיכום: ממוצע כיתתי לכל עמודה (בקשת עמנואל, 2026-08-20) ──
+      // נספרים רק תלמידים שיש להם ציון באותה עמודה; תלמיד בלי ציון אינו נחשב 0 (זה היה מעוות את הממוצע).
+      // ⚠️ העמודה עשויה להכיל ציונים ישנים בסולם 1–10 לצד חדשים 1–100 — במקרה כזה מוצגת אזהרה ולא רק מספר.
+      const foot = (function () {
+        let any = false;
+        const cells = cs.map(c => {
+          // == null ולא רק undefined: Number(null) הוא 0 והיה נספר כציון אפס
+          const vals = all.map(({ a }) => { const v = a && a.scores ? a.scores[c.id] : null; return v == null || v === '' ? NaN : Number(v); }).filter(v => isFinite(v));
+          if (!vals.length) return '<td><span style="color:var(--muted)">—</span></td>';
+          any = true;
+          const avg = vals.reduce((t, v) => t + v, 0) / vals.length;
+          const txt = String(Math.round(avg * 10) / 10);
+          const mixed = vals.some(v => v <= 10) && vals.some(v => v > 10);
+          const who = vals.length === 1 ? 'תלמיד אחד שנרשם לו ציון' : vals.length + ' תלמידים שנרשם להם ציון';
+          return '<td title="ממוצע של ' + who +
+            (mixed ? ' — שימו לב: יש בעמודה גם ציונים בסולם הישן 1–10' : '') + '">' +
+            '<b>' + esc(txt) + '</b>' +
+            (mixed ? ' <i class="bi bi-exclamation-triangle-fill" style="color:var(--warn,#e0a800);font-size:.8rem"></i>' : '') +
+            ' <span style="color:var(--muted);font-weight:400;font-size:.78rem">(' + vals.length + ')</span></td>';
+        }).join('');
+        if (!any) return '';
+        return '<tfoot><tr><td>ממוצע כיתתי</td>' + cells + '<td></td></tr></tfoot>';
+      })();
+      grid.innerHTML = '<table class="tbl"><thead>' + head + '</thead><tbody>' + (rows || '<tr><td colspan="' + (cs.length + 2) + '">אין תלמידים בכיתה</td></tr>') + '</tbody>' + foot + '</table>';
       grid.querySelectorAll('[data-add]').forEach(b => b.addEventListener('click', () => {
         const st = kids.find(k => String(k.id) === b.dataset.add);
         if (st) openAssessment(st, () => drawGrid(classId));
