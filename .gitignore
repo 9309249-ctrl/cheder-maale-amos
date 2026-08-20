@@ -16,3 +16,6 @@ _CREDENTIALS.md
 _send_*.py
 _ask_*.py
 _proof*
+
+# צילומי מסך זמניים לאימות/מיילים
+_shots/
