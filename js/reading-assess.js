@@ -27,9 +27,10 @@
     const rows = cs.map(c =>
       '<tr><td>' + esc(c.name) + '</td><td>' +
         '<input type="number" class="inp mb0 ra-score" data-cid="' + c.id + '" min="1" max="100" step="1" ' +
-        'inputmode="numeric" placeholder="1–100" value="' + esc(prev[c.id] != null ? prev[c.id] : '') + '"></td></tr>').join('');
+        'inputmode="numeric" placeholder="1–100" style="width:100%" value="' + esc(prev[c.id] != null ? prev[c.id] : '') + '"></td></tr>').join('');
     const body = '<div class="ra-form">' +
-      '<table class="tbl"><thead><tr><th>קטגוריה</th><th style="width:130px">ציון 1–100</th></tr></thead><tbody>' + rows + '</tbody></table>' +
+      // min-width:0 — ל-.tbl יש min-width:560px גלובלי, והמודאל צר ממנו (520px) → עמודת הציון נחתכה
+      '<table class="tbl" style="min-width:0"><thead><tr><th>קטגוריה</th><th style="width:110px">ציון 1–100</th></tr></thead><tbody>' + rows + '</tbody></table>' +
       '<label class="fld fld-wide" style="margin-top:10px"><span>הערה</span><textarea class="inp mb0" id="ra_note" rows="2"></textarea></label>' +
       (last ? '<div class="tl-note" style="font-size:.82rem;margin-top:6px">הערכה קודמת: ' + esc(last.assessed_on || '') + '</div>' : '') +
       '</div>';
