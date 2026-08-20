@@ -111,11 +111,12 @@
   // הוספה / שינוי שם / סדר עמודות / כיבוי עמודה בלי לאבד ציונים היסטוריים.
   async function editCategories(onSaved) {
     const cs = (await window.store.list('reading_categories')).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0) || a.id - b.id);
-    const rowHtml = (c) => '<div class="fld rc-row" data-id="' + esc(c.id) + '" style="display:flex;gap:6px;align-items:center;margin-bottom:6px">' +
+    const ROW_CSS = 'display:flex;flex-direction:row;align-items:center;gap:6px;margin-bottom:8px';
+    const rowHtml = (c) => '<div class="rc-row" data-id="' + esc(c.id) + '" style="' + ROW_CSS + '">' +
       '<button type="button" class="mini rc-up" title="הזז למעלה"><i class="bi bi-arrow-up"></i></button>' +
       '<button type="button" class="mini rc-down" title="הזז למטה"><i class="bi bi-arrow-down"></i></button>' +
       '<input class="inp mb0 rc-name" value="' + esc(c.name || '') + '" placeholder="שם העמודה" style="flex:1">' +
-      '<label style="font-size:.8rem;white-space:nowrap"><input type="checkbox" class="rc-active"' + (c.active !== false ? ' checked' : '') + '> פעיל</label>' +
+      '<label style="font-size:.8rem;white-space:nowrap;display:flex;align-items:center;gap:4px;font-weight:600"><input type="checkbox" class="rc-active"' + (c.active !== false ? ' checked' : '') + '> פעיל</label>' +
       '<button type="button" class="mini danger rc-del" title="מחיקה"><i class="bi bi-trash"></i></button></div>';
     const body = '<p class="login-hint" style="margin:0 0 8px">אלו העמודות במסך "מעקב קריאה". אפשר להוסיף עמודות, לשנות שמות ולסדר. ' +
       'עמודה שאינה "פעילה" נעלמת מהטבלה אך הציונים שכבר נרשמו נשמרים.</p>' +
@@ -170,13 +171,13 @@
     list.querySelectorAll('.rc-row').forEach(wireRow);
     el.querySelector('#rcAdd').addEventListener('click', () => {
       const wrap = document.createElement('div');
-      wrap.className = 'fld rc-row';
+      wrap.className = 'rc-row';
       wrap.dataset.id = 'new' + (++newSeq);      // מונה רץ — Date.now() נתן מזהים כפולים בהוספה מהירה
-      wrap.style.cssText = 'display:flex;gap:6px;align-items:center;margin-bottom:6px';
+      wrap.style.cssText = ROW_CSS;
       wrap.innerHTML = '<button type="button" class="mini rc-up" title="הזז למעלה"><i class="bi bi-arrow-up"></i></button>' +
         '<button type="button" class="mini rc-down" title="הזז למטה"><i class="bi bi-arrow-down"></i></button>' +
         '<input class="inp mb0 rc-name" placeholder="שם העמודה" style="flex:1">' +
-        '<label style="font-size:.8rem;white-space:nowrap"><input type="checkbox" class="rc-active" checked> פעיל</label>' +
+        '<label style="font-size:.8rem;white-space:nowrap;display:flex;align-items:center;gap:4px;font-weight:600"><input type="checkbox" class="rc-active" checked> פעיל</label>' +
         '<button type="button" class="mini danger rc-del" title="הסר"><i class="bi bi-trash"></i></button>';
       list.appendChild(wrap);
       wireRow(wrap);
