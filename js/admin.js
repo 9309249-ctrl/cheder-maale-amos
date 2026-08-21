@@ -24,8 +24,8 @@
         '<div class="qr-grid" style="grid-template-columns:1fr auto;margin-top:10px"><input class="inp mb0" id="newCls" placeholder="שם כיתה חדשה"><button class="btn-primary sm" id="addCls"><i class="bi bi-plus-lg"></i> הוסף</button></div></div>' +
       '<div class="qr-card"><h3><i class="bi bi-tags"></i> קטגוריות התנהגות</h3><p class="login-hint" style="margin:0 0 8px">הקטגוריות מופיעות בבחירה בעת דיווח התנהגות. ניתן להוסיף, לערוך ולמחוק.</p><div id="catList"></div>' +
         '<div class="qr-grid" style="grid-template-columns:1fr auto;margin-top:10px"><input class="inp mb0" id="newCat" placeholder="שם קטגוריה חדשה"><button class="btn-primary sm" id="addCat"><i class="bi bi-plus-lg"></i> הוסף</button></div></div>' +
-      '<div class="qr-card"><div class="card-h-row"><h3><i class="bi bi-book-half"></i> עמודות מעקב קריאה</h3><button class="btn-primary sm" id="raCatsBtn"><i class="bi bi-sliders"></i> עריכת עמודות</button></div>' +
-        '<p class="login-hint" style="margin:0 0 8px">אלו העמודות בטבלת "מעקב קריאה", והציון בכל עמודה נרשם חופשי בין 1 ל-100. ניתן להוסיף עמודות, לשנות שמות ולסדר.</p><div id="raCatsList"></div></div>' +
+      '<div class="qr-card"><div class="card-h-row"><h3><i class="bi bi-book-half"></i> פריטי מעקב קריאה</h3><button class="btn-primary sm" id="raCatsBtn"><i class="bi bi-sliders"></i> עריכת פריטים</button></div>' +
+        '<p class="login-hint" style="margin:0 0 8px">מבנה מעקב הקריאה לפי מפרט הרבנית חרלפ: כותרת ראשית ← כותרת משנה ← פריט, בנפרד לכיתות א׳–ב׳ ולכיתות ג׳ ומעלה. על כל <b>פריט</b> מסמנים תקין/לא תקין + תאריך העברה, ואפשר להוסיף ציון 1–100.</p><div id="raCatsList"></div></div>' +
       '<div class="qr-card"><div class="card-h-row"><h3><i class="bi bi-people"></i> צוות והרשאות</h3><button class="btn-primary sm" id="usrAdd"><i class="bi bi-person-plus"></i> משתמש חדש</button></div>' +
         '<div class="table-wrap"><table class="tbl"><thead><tr><th>שם</th><th>טלפון</th><th>תפקיד</th><th>כיתות</th><th></th></tr></thead><tbody id="usrBody"></tbody></table></div></div>' +
       '<div class="qr-card"><h3><i class="bi bi-clock-history"></i> יומן פעולות</h3><div id="audList"></div></div>' +
@@ -98,13 +98,24 @@
         },
       });
     }
+    // מאז 21/08/2026 פריטי מעקב הקריאה הם עץ בן 3 רמות ומחולקים לשתי שכבות גיל —
+    // תצוגה שטוחה של 64 שורות הייתה בלתי קריאה, ולכן מוצג כאן העץ עם הזחה, לפי שכבה.
     function drawReadCats() {
       const host = page.querySelector('#raCatsList'); if (!host) return;
-      const list = (readCats || []).slice().sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0) || a.id - b.id);
-      host.innerHTML = list.length ? list.map(c =>
-        '<div class="tl-item"><span class="sev-dot ' + (c.active === false ? 'low' : 'mid') + '"></span><div class="tl-main">' + esc(c.name) +
-        (c.active === false ? ' <span class="det-badge">מוסתרת</span>' : '') + '</div></div>').join('')
-        : '<div class="tl-note" style="padding:8px">אין עמודות עדיין</div>';
+      const bt = window.cv3ReadAssess && window.cv3ReadAssess.buildTree;
+      if (!bt) { host.innerHTML = '<div class="tl-note" style="padding:8px">מודול מעקב הקריאה לא נטען</div>'; return; }
+      const bands = [{ k: 'low', t: 'כיתות א׳–ב׳' }, { k: 'high', t: 'כיתות ג׳ ומעלה' }];
+      const walk = (nodes) => nodes.map(n =>
+        '<div class="tl-item" style="margin-right:' + (n.depth * 16) + 'px">' +
+        '<span class="sev-dot ' + (n.depth === 0 ? 'high' : n.depth === 1 ? 'mid' : 'low') + '"></span>' +
+        '<div class="tl-main"' + (n.depth === 0 ? ' style="font-weight:800"' : '') + '>' + esc(n.name) +
+        (n.children.length ? '' : ' <span class="det-badge">פריט</span>') + '</div></div>' + walk(n.children)).join('');
+      const html = bands.map(b => {
+        const roots = bt(readCats || [], b.k);
+        if (!roots.length) return '';
+        return '<div class="tl-note" style="padding:8px 2px 2px;font-weight:800">' + b.t + '</div>' + walk(roots);
+      }).join('');
+      host.innerHTML = html || '<div class="tl-note" style="padding:8px">אין פריטי מעקב עדיין</div>';
     }
 
     function drawUsers() {

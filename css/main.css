@@ -172,6 +172,33 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 /* שורת ממוצע כיתתי במעקב קריאה — מודגשת ומופרדת מגוף הטבלה */
 table.tbl tfoot td{background:var(--bg); font-weight:800; border-top:2px solid var(--line); border-bottom:none}
 
+/* ══ מעקב קריאה — מבנה עץ (מפרט הרבנית חרלפ, 21/08/2026) ══ */
+.ra-toggle{display:flex; align-items:center; gap:6px; font-size:.84rem; font-weight:600; white-space:nowrap}
+.ra-tree{max-height:56vh; overflow:auto; border:1px solid var(--line); border-radius:12px; padding:10px 12px}
+.ra-h{font-weight:800; margin:12px 0 4px}
+.ra-h0{font-size:.96rem; border-bottom:2px solid var(--line); padding-bottom:4px}
+.ra-h1{font-size:.86rem; color:var(--muted); margin-right:10px}
+.ra-h2{font-size:.82rem; color:var(--muted); margin-right:20px}
+/* שורת פריט: השם משמאל, הפקדים מימין; נשברת לשתי שורות במסך צר */
+.ra-leaf{display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; padding:5px 0; border-bottom:1px dashed var(--line)}
+.ra-leaf:last-child{border-bottom:none}
+.ra-leaf-name{font-size:.87rem}
+.ra-ctl{display:flex; align-items:center; gap:6px}
+.ra-ctl .ra-date{width:140px} .ra-ctl .ra-score{width:76px}
+.ra-seg{display:flex; border:1px solid var(--line); border-radius:8px; overflow:hidden}
+.ra-seg button{border:0; background:transparent; font-family:inherit; font-weight:700; font-size:.76rem; padding:5px 9px; cursor:pointer; color:var(--muted)}
+.ra-seg button[data-v="1"].on{background:#16a34a; color:#fff}
+.ra-seg button[data-v="0"].on{background:#dc2626; color:#fff}
+.ra-n{font-size:.76rem; color:var(--muted); font-weight:400}
+.ra-ok-i{color:#16a34a; font-weight:800}
+.ra-bad-i{color:#dc2626; font-weight:800}
+table.tbl th.ra-grp{text-align:center; border-inline-start:1px solid var(--line)}
+table.tbl.ra-detailed th, table.tbl.ra-detailed td{padding:7px 8px; font-size:.82rem; text-align:center}
+table.tbl.ra-detailed td:first-child, table.tbl.ra-detailed th:first-child{text-align:start}
+/* שורות עורך פריטי המעקב — .fld כופה flex-direction:column, לכן נדרשת אכיפה מפורשת */
+.rc-row{display:flex; flex-direction:row; align-items:center; gap:6px; margin-bottom:8px}
+.rc-act{font-size:.8rem; white-space:nowrap; display:flex; align-items:center; gap:4px; font-weight:600}
+
 table.tbl tbody tr:hover{background:var(--bg)}
 .ava{display:inline-grid; place-items:center; width:30px; height:30px; border-radius:9px; background:color-mix(in srgb,var(--primary) 12%,transparent); color:var(--primary); font-weight:800; font-size:.72rem; margin-inline-end:6px}
 .chip{font-size:.72rem; font-weight:700; padding:2px 9px; border-radius:999px}
