@@ -17,6 +17,10 @@
     let ev = (await window.store.list('behavior_events')).slice().reverse();
     const ids = window.cv3Students ? await window.cv3Students.accessibleIds() : null;
     if (ids) ev = ev.filter(e => ids.includes(e.student_id));
+    // רב/מלמד רואה רק את הדיווחים שרשם בעצמו (defense-in-depth לצד ה-RLS בשרת)
+    if (window.Auth && window.Auth.ownReportsOnly && window.Auth.ownReportsOnly()) {
+      const uid = window.Auth.userId; ev = ev.filter(e => String(e.created_by) === String(uid));
+    }
     return ev;
   }
   async function addEvent(row) { const r = await window.store.add('behavior_events', row); return { ok: r.ok, data: r.data }; }

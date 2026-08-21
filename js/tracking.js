@@ -11,6 +11,10 @@
     let rows = await window.store.list(table);
     const ids = window.cv3Students ? await window.cv3Students.accessibleIds() : null;
     if (ids && rows.length && 'student_id' in rows[0]) rows = rows.filter(r => ids.includes(r.student_id));
+    // רב/מלמד רואה רק את הרשומות שרשם בעצמו (נוכחות/מבחנים) — תואם ל-RLS בשרת
+    if (window.Auth && window.Auth.ownReportsOnly && window.Auth.ownReportsOnly() && rows.length && 'created_by' in rows[0]) {
+      const uid = window.Auth.userId; rows = rows.filter(r => String(r.created_by) === String(uid));
+    }
     return rows;
   }
   async function add(table, row) { const r = await window.store.add(table, row); return { ok: r.ok, data: r.data }; }

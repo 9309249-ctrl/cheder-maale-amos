@@ -214,6 +214,16 @@
     },
     // הרשאה מיוחדת (אסימון בתוך perms) — מנהל תמיד כן. שימוש: 'stu_names' / 'card_own'.
     cap: function (token) { const u = A.currentUser; if (!u) return false; if (u.role === 'מנהל') return true; return !!(A.perms && A.perms.indexOf(token) !== -1); },
+    // מזהה המשתמש הנוכחי (בחי = uuid של הפרופיל = auth.uid() = created_by ברשומות).
+    get userId() { return A.currentUser ? A.currentUser.id : null; },
+    // רואה רק את הדיווחים שרשם בעצמו: מלמד (רב) או צוות-מוגבל. תואם ל-sees_only_own_reports() ב-RLS.
+    ownReportsOnly: function () {
+      const u = A.currentUser; if (!u) return false;
+      if (u.role === 'מנהל' || u.role === 'מפקח') return false;
+      if (u.role === 'מלמד') return true;
+      const p = A.perms || [];
+      return (p.indexOf('stu_names') !== -1 || p.indexOf('card_own') !== -1) && p.indexOf('students') === -1;
+    },
     // גישה מלאה לתלמידים (כרטיס מלא + עריכה): מנהל/מפקח, או מי שיש לו מסך 'students' מלא (perms=null=ברירת מחדל של התפקיד).
     fullStudents: function () { const u = A.currentUser; if (!u) return false; if (u.role === 'מנהל' || u.role === 'מפקח') return true; return !A.perms || A.perms.indexOf('students') !== -1; },
   };

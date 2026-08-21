@@ -146,8 +146,14 @@
     if (!res.ok) reportReadFailure(table, res.error);
     return res.data || [];
   }
+  // בחי, created_by נקבע ב-DB (default auth.uid()). בדמו נחתום אותו כאן כדי ששיוך "הדיווחים שלי" יעבוד גם בהדגמה.
+  const OWNED = { behavior_events: 1, attendance: 1, tests: 1 };
   async function add(table, row) {
-    if (DEMO) { row = Object.assign({}, row); if (!seqs[table]) seqs[table] = 1; row.id = seqs[table]++; (mem[table] = mem[table] || []).push(row); return { ok: true, data: [row] }; }
+    if (DEMO) {
+      row = Object.assign({}, row);
+      if (OWNED[table] && row.created_by == null && window.currentUser) row.created_by = window.currentUser.id;
+      if (!seqs[table]) seqs[table] = 1; row.id = seqs[table]++; (mem[table] = mem[table] || []).push(row); return { ok: true, data: [row] };
+    }
     return window.db.insert(table, row);
   }
   async function update(table, id, patch) {
