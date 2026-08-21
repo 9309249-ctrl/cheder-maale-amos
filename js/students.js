@@ -128,6 +128,9 @@
         (window.cv3ReadAssess ? window.cv3ReadAssess.forStudent(s.id) : Promise.resolve([])),
       ]);
       const catName = id => { const c = cats.find(x => x.id == id); return c ? c.name : ''; };
+      // כרטיס "מסייע חכם" אחיד — אותו רכיב גרפי כמו במגירה הצדדית, מוטמע בראש הכרטיס
+      let aiHtml = '';
+      if (window.cv3AI) { try { aiHtml = window.cv3AI.cardHtml(await window.cv3AI.summaryFor(s.id)); } catch (_) { aiHtml = ''; } }
       const row = (lbl, val) => val ? '<div class="det-row"><span class="det-lbl">' + lbl + '</span><span class="det-val">' + esc(val) + '</span></div>' : '';
       const sevc = x => x === 'גבוהה' ? 'hi' : x === 'נמוכה' ? 'lo' : 'mid';
       const li = (main, meta, dot) => '<div class="det-item">' + (dot ? '<span class="sev-dot ' + dot + '"></span>' : '') + '<span class="di-main">' + main + '</span><span class="di-meta">' + esc(meta || '') + '</span></div>';
@@ -143,6 +146,7 @@
       m.el.querySelector('.modal-body').innerHTML =
         '<div class="det-head"><span class="ava lg">' + esc((s.name || '?').slice(0, 2)) + '</span>' +
         '<div><div class="det-name">' + esc(fullName(s)) + '</div><span class="chip ' + (s.status === 'פעיל' ? 'ok' : 'off') + '">' + esc(s.status || '') + '</span></div></div>' +
+        aiHtml +
         '<div class="det-grid">' + row('שם משפחה', s.family) + row('תעודת זהות', s.tz) + row('כיתה', classNameOf(classes, s.class_id)) +
           row('ת. לידה עברי', s.birthdate_heb) + row('ת. לידה לועזי', s.birthdate) + row('שם אבא', s.parent_name) +
           (s.parent_phone ? '<div class="det-row"><span class="det-lbl">טלפון אבא</span><span class="det-val"><a href="tel:' + esc(s.parent_phone) + '">' + esc(s.parent_phone) + '</a></span></div>' : '') +
