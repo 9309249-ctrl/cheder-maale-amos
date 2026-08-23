@@ -37,11 +37,17 @@
         '<div class="page-head"><button class="back" onclick="showPage(\'home\')">→ חזרה לתפריט</button><h2>' + cfg.title + '</h2>' +
         '<div class="head-actions"><button class="btn-ghost sm" id="recCsv-' + uid + '"><i class="bi bi-download"></i> ייצוא CSV</button></div></div>' +
         (cfg.restricted ? '<div class="demo-note" style="margin:0 2px 12px"><i class="bi bi-shield-lock"></i> מידע רגיש — הגישה מוגבלת לתפקידים מורשים (נאכף ע"י ה-RLS בצד-שרת).</div>' : '') +
-        '<div class="qr-card"><h3><i class="bi ' + cfg.icon + '"></i> רישום חדש</h3><div class="qr-grid" style="grid-template-columns:repeat(' + cfg.fields.length + ',1fr) auto">' +
+        // entry-card: במצב "צפייה בלבד" כרטיס ההזנה היה נשאר על המסך אבל מת לגמרי —
+        // ה-CSS נותן pointer-events:none לשדות ומסתיר את כפתור ההוספה, כך שבורר התלמידים
+        // לא נפתח ו"לא מופיעים שמות". זה נראה כמו תקלה במערכת ולא כמו חוסר הרשאה (23/08/2026).
+        // עכשיו הכרטיס מוסתר לגמרי ובמקומו הודעה שמסבירה מה קורה ומה לעשות.
+        '<div class="qr-card entry-card"><h3><i class="bi ' + cfg.icon + '"></i> רישום חדש</h3><div class="qr-grid" style="grid-template-columns:repeat(' + cfg.fields.length + ',1fr) auto">' +
           pickHtml +
           fieldsHtml +
           '<button class="btn-primary sm" id="recSave-' + uid + '"><i class="bi bi-plus-lg"></i> הוסף</button>' +
         '</div></div>' +
+        '<div class="entry-note"><i class="bi bi-eye"></i> ההרשאה שלך במערכת היא <b>צפייה בלבד</b>, ולכן אי אפשר להוסיף כאן רישום חדש. ' +
+        'הרישומים הקיימים מוצגים למטה. כדי לקבל הרשאת הזנה — פנה למנהל המערכת.</div>' +
         '<div id="recList-' + uid + '"></div>' +
         '<div id="recEmpty-' + uid + '" class="empty-state" hidden><i class="bi ' + cfg.icon + '"></i><div>אין רישומים עדיין</div></div>';
       const pick = window.cv3Picker.wire(page, cfg.table);

@@ -296,6 +296,13 @@ body.mode-readonly .det-actions{ display:none !important; }
 body.mode-readonly .qr-card input, body.mode-readonly .qr-card select, body.mode-readonly .qr-card textarea{ pointer-events:none; opacity:.6; }
 /* חריג — פעולות אישיות (שינוי סיסמה) חייבות לעבוד בכל מצב, גם בצפייה-בלבד */
 body.mode-readonly .btn-primary.always-on, body.mode-writeonly .btn-primary.always-on{ display:inline-flex !important; }
+/* צפייה בלבד: להסתיר את כרטיס ההזנה במקום להשאיר אותו מת (שדות pointer-events:none),
+   ולהסביר למה. 23/08/2026 — מפקח ראה טופס "רישום חדש" שלא הגיב, וזה נראה כמו תקלה. */
+.entry-note{ display:none }
+body.mode-readonly .entry-card{ display:none !important }
+body.mode-readonly .entry-note{ display:block; background:#eff6ff; border:1px solid #bfdbfe; color:#1e40af;
+  border-radius:12px; padding:11px 14px; margin:0 2px 14px; font-size:.88rem }
+
 /* מצב הזנה-בלבד (מלמד) — טופס הזנה בלבד, בלי צפייה ברשימות/דוחות */
 body.mode-writeonly #timeline, body.mode-writeonly .table-wrap, body.mode-writeonly #recList,
 body.mode-writeonly #logList, body.mode-writeonly .dash-grid, body.mode-writeonly .stat-row,
