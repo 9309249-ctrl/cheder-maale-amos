@@ -16,6 +16,12 @@
       window.store.list('categories'),
     ]);
     let readCats = await window.store.list('reading_categories');
+    // ⚠️ סיסמאות הצוות בטקסט קריא — לבקשה מפורשת של יוסף (23/08/2026), אחרי שהוצגה לו המשמעות.
+    // הטבלה `staff_passwords` פתוחה ל-**מנהל בלבד** ב-RLS, ומסך זה בלאו הכי adminOnly.
+    // סיסמאות שנקבעו לפני התכונה אינן ניתנות לשחזור ויוצגו כ"לא ידועה".
+    let pwMap = {};
+    try { (await window.store.list('staff_passwords') || []).forEach(r => { pwMap[r.user_id] = r.password; }); } catch (_) {}
+    let pwShown = false;
     const clsName = id => { const c = classes.find(x => x.id == id); return c ? c.name : ''; };
     const userClasses = uid => access.filter(a => a.user_id == uid).map(a => a.class_id);
     page.innerHTML =
@@ -28,7 +34,11 @@
         '<p class="login-hint" style="margin:0 0 8px">מבנה מעקב הקריאה לפי מפרט הרבנית חרלפ: כותרת ראשית ← כותרת משנה ← פריט, בנפרד לכיתות א׳–ב׳ ולכיתות ג׳ ומעלה. על כל <b>פריט</b> מסמנים תקין/לא תקין + תאריך העברה, ואפשר להוסיף ציון 1–100.</p><div id="raCatsList"></div></div>' +
       '<div class="qr-card"><div class="card-h-row"><h3><i class="bi bi-people"></i> צוות והרשאות</h3><button class="btn-primary sm" id="usrAdd"><i class="bi bi-person-plus"></i> משתמש חדש</button></div>' +
         '<div id="usrOrphan"></div>' +
-        '<div class="table-wrap"><table class="tbl"><thead><tr><th>שם</th><th>טלפון</th><th>תפקיד</th><th>כיתות</th><th></th></tr></thead><tbody id="usrBody"></tbody></table></div></div>' +
+        '<div class="toolbar" style="grid-template-columns:auto 1fr;margin-bottom:8px">' +
+          '<button class="btn-ghost sm always-on" id="pwToggle"><i class="bi bi-eye"></i> הצג סיסמאות</button>' +
+          '<span class="tl-note" style="align-self:center;font-size:.8rem">הסיסמאות גלויות למנהל בלבד. סיסמה שנקבעה לפני שהתכונה נוספה אינה ניתנת לשחזור — קבע חדשה בעריכת המשתמש.</span>' +
+        '</div>' +
+        '<div class="table-wrap"><table class="tbl"><thead><tr><th>שם</th><th>טלפון</th><th>סיסמה</th><th>תפקיד</th><th>כיתות</th><th></th></tr></thead><tbody id="usrBody"></tbody></table></div></div>' +
       '<div class="qr-card"><h3><i class="bi bi-clock-history"></i> יומן פעולות</h3><div id="audList"></div></div>' +
       '<div class="qr-card"><h3><i class="bi bi-bug"></i> בקשות תיקון</h3><div class="qr-grid" style="grid-template-columns:auto 2fr auto"><select class="inp mb0" id="fbKind"><option value="bug">באג</option><option value="idea">רעיון</option></select><input class="inp mb0" id="fbBody" placeholder="תיאור…"><button class="btn-primary sm" id="fbSave"><i class="bi bi-send"></i> שלח</button></div><div id="fbList" style="margin-top:10px"></div></div>' +
       '<div class="qr-card"><h3><i class="bi bi-info-circle"></i> אודות</h3><ul class="about-list"><li>מערכת מעקב — תלמוד תורה · גרסה 0.2</li><li>ארכיטקטורה: GitHub Pages + Supabase (RLS)</li><li>מוסד: <b id="aboutInst"></b></li></ul></div>';
@@ -148,11 +158,22 @@
         // משתמש מושבת נראה עד היום זהה לפעיל — והמנהל לא הבין למה הוא "לא רואה כלום".
         // עכשיו הוא מסומן במפורש, ואפשר להחזיר אותו לפעילות בלחיצה.
         const off = u.active === false;
-        return '<tr' + (off ? ' style="opacity:.62"' : '') + '><td>' + esc(u.name) + (off ? ' <span class="det-badge">מושבת</span>' : '') + '</td><td>' + esc(u.phone || u.tz || '') + '</td><td><span class="chip ' + (u.role === 'מנהל' ? 'ok' : 'off') + '">' + esc(u.role) + '</span></td><td>' + cls + '</td>' +
+        const pw = pwMap[u.id];
+        const phone = String(u.phone || u.tz || '');
+        const pwCell = pw
+          ? (pwShown
+              ? '<code style="font-size:.85rem">' + esc(pw) + '</code>' +
+                (pw === phone ? ' <span class="det-badge" title="הסיסמה זהה למספר הטלפון — מומלץ לשנות">ברירת מחדל</span>' : '')
+              : '<span style="letter-spacing:2px;color:var(--muted)">••••••</span>' +
+                (pw === phone ? ' <span class="det-badge">ברירת מחדל</span>' : ''))
+          : '<span class="tl-note" style="font-size:.78rem">לא ידועה</span>';
+        return '<tr' + (off ? ' style="opacity:.62"' : '') + '><td>' + esc(u.name) + (off ? ' <span class="det-badge">מושבת</span>' : '') + '</td><td>' + esc(phone) + '</td><td>' + pwCell + '</td><td><span class="chip ' + (u.role === 'מנהל' ? 'ok' : 'off') + '">' + esc(u.role) + '</span></td><td>' + cls + '</td>' +
           '<td class="row-act"><button class="mini" data-ucard="' + u.id + '" title="כרטיס איש צוות"><i class="bi bi-person-vcard"></i></button><button class="mini" data-uedit="' + u.id + '" title="עריכה"><i class="bi bi-pencil"></i></button>' +
           (off ? '<button class="mini" data-uon="' + u.id + '" title="החזרה לפעילות"><i class="bi bi-person-check"></i></button>'
                : '<button class="mini danger" data-udel="' + u.id + '" title="השבתה"><i class="bi bi-trash"></i></button>') + '</td></tr>';
       }).join('');
+      const pt = page.querySelector('#pwToggle');
+      if (pt) pt.onclick = () => { pwShown = !pwShown; pt.innerHTML = pwShown ? '<i class="bi bi-eye-slash"></i> הסתר סיסמאות' : '<i class="bi bi-eye"></i> הצג סיסמאות'; drawUsers(); };
       page.querySelectorAll('[data-ucard]').forEach(b => b.addEventListener('click', () => { if (window.cv3StaffCard) window.cv3StaffCard.open(b.dataset.ucard); }));
       page.querySelectorAll('[data-uedit]').forEach(b => b.addEventListener('click', () => openUserForm(users.find(u => u.id == b.dataset.uedit))));
       page.querySelectorAll('[data-udel]').forEach(b => b.addEventListener('click', async () => {
@@ -196,7 +217,7 @@
           '<label class="fld"><span>שם מלא * <small style="font-weight:400;color:var(--muted)">(שם הכניסה)</small></span><input class="inp mb0" id="u_name" value="' + esc(u.name) + '"></label>' +
           '<label class="fld"><span>טלפון * <small style="font-weight:400;color:var(--muted)">(סיסמה ראשונית)</small></span><input class="inp mb0" id="u_phone" value="' + esc(u.phone || u.tz || '') + '"></label>' +
           '<label class="fld"><span>סיסמה ' + (existing ? '(ריק = טלפון/ללא שינוי)' : '(ריק = הטלפון)') + '</span>' +
-            '<div style="display:flex;gap:6px"><input class="inp mb0" id="u_pw" type="password" placeholder="סיסמה" style="flex:1" value="' + esc(existing ? (u.password || '') : '') + '">' +
+            '<div style="display:flex;gap:6px"><input class="inp mb0" id="u_pw" type="password" placeholder="סיסמה" style="flex:1" value="' + esc(existing ? (u.password || pwMap[u.id] || '') : '') + '">' +
             '<button type="button" class="btn-ghost sm" id="u_pw_show" title="הצג/הסתר"><i class="bi bi-eye"></i></button></div></label>' +
           '<label class="fld"><span>תפקיד</span><select class="inp mb0" id="u_role">' +
             ['מנהל', 'מחנך', 'מלמד', 'מפקח', 'מזכירה'].map(r => '<option' + ((u.role === r || (!u.role && r === 'מחנך')) ? ' selected' : '') + '>' + r + '</option>').join('') +
@@ -239,7 +260,7 @@
               else {
                 const { data, error } = await window.sb.rpc('admin_set_password', { p_user: u.id, p_password: pw });
                 if (error || data === false) { window.UI.toast('הפרטים נשמרו אך שינוי הסיסמה נכשל' + (error ? ': ' + error.message : ''), 'err'); }
-                else { window.UI.toast('הסיסמה עודכנה'); }
+                else { pwMap[u.id] = pw; window.UI.toast('הסיסמה עודכנה'); }
               }
             }
             Object.assign(u, { name, role, tz: phone, perms, access_mode }); uid = u.id;
@@ -254,6 +275,8 @@
             const prev = users.find(x => String(x.email || '').toLowerCase() === email.toLowerCase());
             const { data, error } = await tmp.auth.signUp({ email, password, options: { data: { name } } });
             uid = data && data.user && data.user.id;
+            // העותק הקריא למנהל (החלטת יוסף 23/08/2026) — נרשם אחרי היצירה, ה-hash כבר נקבע ע"י Auth
+            if (uid) { try { await window.sb.rpc('admin_record_password', { p_user: uid, p_password: password }); pwMap[uid] = password; } catch (_) {} }
             if ((error || !uid) && prev) {
               const upd0 = await window.store.update('profiles', prev.id, { name, role, tz: phone, perms, access_mode, active: true });
               if (!upd0 || upd0.ok === false) { window.UI.toast('שחזור המשתמש הקיים נכשל: ' + ((upd0 && upd0.error) || ''), 'err'); return false; }
