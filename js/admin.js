@@ -27,6 +27,7 @@
       '<div class="qr-card"><div class="card-h-row"><h3><i class="bi bi-book-half"></i> פריטי מעקב קריאה</h3><button class="btn-primary sm" id="raCatsBtn"><i class="bi bi-sliders"></i> עריכת פריטים</button></div>' +
         '<p class="login-hint" style="margin:0 0 8px">מבנה מעקב הקריאה לפי מפרט הרבנית חרלפ: כותרת ראשית ← כותרת משנה ← פריט, בנפרד לכיתות א׳–ב׳ ולכיתות ג׳ ומעלה. על כל <b>פריט</b> מסמנים תקין/לא תקין + תאריך העברה, ואפשר להוסיף ציון 1–100.</p><div id="raCatsList"></div></div>' +
       '<div class="qr-card"><div class="card-h-row"><h3><i class="bi bi-people"></i> צוות והרשאות</h3><button class="btn-primary sm" id="usrAdd"><i class="bi bi-person-plus"></i> משתמש חדש</button></div>' +
+        '<div id="usrOrphan"></div>' +
         '<div class="table-wrap"><table class="tbl"><thead><tr><th>שם</th><th>טלפון</th><th>תפקיד</th><th>כיתות</th><th></th></tr></thead><tbody id="usrBody"></tbody></table></div></div>' +
       '<div class="qr-card"><h3><i class="bi bi-clock-history"></i> יומן פעולות</h3><div id="audList"></div></div>' +
       '<div class="qr-card"><h3><i class="bi bi-bug"></i> בקשות תיקון</h3><div class="qr-grid" style="grid-template-columns:auto 2fr auto"><select class="inp mb0" id="fbKind"><option value="bug">באג</option><option value="idea">רעיון</option></select><input class="inp mb0" id="fbBody" placeholder="תיאור…"><button class="btn-primary sm" id="fbSave"><i class="bi bi-send"></i> שלח</button></div><div id="fbList" style="margin-top:10px"></div></div>' +
@@ -118,7 +119,25 @@
       host.innerHTML = html || '<div class="tl-note" style="padding:8px">אין פריטי מעקב עדיין</div>';
     }
 
+    // ⚠️ מסך "יתום" = מודול שקיים ב-MODULES אבל אף איש צוות פעיל (שאינו מנהל) לא רואה אותו.
+    // כך בדיוק נעלם "מעקב קריאה" מכל המורים ב-17–21/08: המסך נוסף אחרי שההרשאות כבר נקבעו,
+    // ומערך perms קיים לא מקבל מודולים חדשים אוטומטית. עכשיו זה צף למנהל במקום להתגלות בתלונה.
+    function drawOrphanModules() {
+      const host = page.querySelector('#usrOrphan'); if (!host) return;
+      const assignable = (window.MODULES || []).filter(m => !m.adminOnly);
+      const staff = users.filter(u => u.active !== false && u.role !== 'מנהל');
+      const sees = (u, id) => !u.perms || !u.perms.length || u.perms.indexOf(id) !== -1;
+      const orphans = staff.length ? assignable.filter(m => !staff.some(u => sees(u, m.id))) : [];
+      host.innerHTML = orphans.length
+        ? '<div class="tl-note" style="padding:8px 10px;margin-bottom:8px;border-radius:10px;background:#fef3c7;color:#7c4a03">' +
+          '<i class="bi bi-exclamation-triangle-fill"></i> <b>שים לב:</b> אף איש צוות לא רואה את המסכים הבאים — ' +
+          orphans.map(m => esc(m.label)).join(', ') +
+          '. אם המסך נוסף למערכת אחרי שההרשאות נקבעו, צריך לסמן אותו ידנית בעריכת כל משתמש.</div>'
+        : '';
+    }
+
     function drawUsers() {
+      drawOrphanModules();
       page.querySelector('#usrBody').innerHTML = users.map(u => {
         const modIds = (window.MODULES || []).map(m => m.id);
         const modCount = (u.perms || []).filter(p => modIds.includes(p)).length;

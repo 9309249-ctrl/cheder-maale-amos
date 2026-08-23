@@ -67,8 +67,10 @@
   // יכולות לפי תפקיד (בקשת עמנואל): מסכים מותרים + מצב (מלא/צפייה-בלבד/הזנה-בלבד).
   function roleCaps(role) {
     const money = ['tuition', 'cashbox'];
-    const entry = ['behavior', 'attendance', 'tests'];  // מסכי הזנה (מלמד)
-    const nonMoney = ['behavior', 'attendance', 'tests', 'students', 'medical', 'forms', 'calendar', 'reports'];
+    // ⚠️ מודול חדש שמתווסף ל-MODULES חייב להתווסף גם כאן, וגם ל-perms של המשתמשים הקיימים
+    // (מיגרציה). ב-21/08/2026 'readassess' חסר משניהם — ואף מורה לא ראה את מסך מעקב הקריאה.
+    const entry = ['behavior', 'attendance', 'tests', 'readassess'];  // מסכי הזנה (מלמד)
+    const nonMoney = ['behavior', 'attendance', 'tests', 'readassess', 'students', 'medical', 'forms', 'calendar', 'reports'];
     switch (role) {
       case 'מנהל':  return { perms: null, mode: 'full', scoped: false };          // הכל + שינויים + כספים
       case 'מפקח':  return { perms: null, mode: 'readonly', scoped: false };       // הכל, ללא שינויים
