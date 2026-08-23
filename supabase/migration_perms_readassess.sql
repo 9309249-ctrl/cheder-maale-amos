@@ -1,4 +1,4 @@
--- migration_perms_readassess.sql — 21/08/2026
+-- migration_perms_readassess.sql — 23/08/2026
 -- באג שעמנואל דיווח: "רמי ניסה ולא עובד לו, בכלל לא מופיע לו התלמידים".
 --
 -- שורש הבעיה: המודול 'readassess' (מעקב קריאה) נוסף ל-MODULES ב-17/08, אבל מערכי ה-perms

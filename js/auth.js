@@ -68,7 +68,7 @@
   function roleCaps(role) {
     const money = ['tuition', 'cashbox'];
     // ⚠️ מודול חדש שמתווסף ל-MODULES חייב להתווסף גם כאן, וגם ל-perms של המשתמשים הקיימים
-    // (מיגרציה). ב-21/08/2026 'readassess' חסר משניהם — ואף מורה לא ראה את מסך מעקב הקריאה.
+    // (מיגרציה). ב-23/08/2026 'readassess' חסר משניהם — ואף מורה לא ראה את מסך מעקב הקריאה.
     const entry = ['behavior', 'attendance', 'tests', 'readassess'];  // מסכי הזנה (מלמד)
     const nonMoney = ['behavior', 'attendance', 'tests', 'readassess', 'students', 'medical', 'forms', 'calendar', 'reports'];
     switch (role) {
