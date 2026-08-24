@@ -35,7 +35,9 @@
         '<input class="inp mb0' + (f.wide ? ' fld-wide' : '') + '" data-f="' + f.k + '" placeholder="' + esc(f.label) + '"' + (f.type === 'number' ? ' type="number"' : '') + '>').join('');
       page.innerHTML =
         '<div class="page-head"><button class="back" onclick="showPage(\'home\')">→ חזרה לתפריט</button><h2>' + cfg.title + '</h2>' +
-        '<div class="head-actions"><button class="btn-ghost sm" id="recCsv-' + uid + '"><i class="bi bi-download"></i> ייצוא CSV</button></div></div>' +
+        '<div class="head-actions">' +
+          (cfg.batch ? '<button class="btn-ghost sm always-on" id="recMode-' + uid + '"><i class="bi bi-table"></i> טבלת כיתה</button>' : '') +
+          '<button class="btn-ghost sm" id="recCsv-' + uid + '"><i class="bi bi-download"></i> ייצוא CSV</button></div></div>' +
         (cfg.restricted ? '<div class="demo-note" style="margin:0 2px 12px"><i class="bi bi-shield-lock"></i> מידע רגיש — הגישה מוגבלת לתפקידים מורשים (נאכף ע"י ה-RLS בצד-שרת).</div>' : '') +
         // entry-card: במצב "צפייה בלבד" כרטיס ההזנה היה נשאר על המסך אבל מת לגמרי —
         // ה-CSS נותן pointer-events:none לשדות ומסתיר את כפתור ההוספה, כך שבורר התלמידים
@@ -48,6 +50,23 @@
         '</div></div>' +
         '<div class="entry-note"><i class="bi bi-eye"></i> ההרשאה שלך במערכת היא <b>צפייה בלבד</b>, ולכן אי אפשר להוסיף כאן רישום חדש. ' +
         'הרישומים הקיימים מוצגים למטה. כדי לקבל הרשאת הזנה — פנה למנהל המערכת.</div>' +
+        (cfg.batch ?
+          '<div class="qr-card entry-card" id="recBatch-' + uid + '" hidden>' +
+            '<h3><i class="bi bi-table"></i> טבלת כיתה — מזינים ציונים בלבד</h3>' +
+            '<p class="login-hint" style="margin:0 0 8px">בחר כיתה, תאריך ומקצוע — ואז מלא רק את הציונים. ' +
+            'תלמיד שיישאר ריק לא יירשם. אם כבר הזנת ציון לאותה כיתה+תאריך+מקצוע, הוא ייטען לעריכה במקום להיכפל.</p>' +
+            '<div class="qr-grid" style="grid-template-columns:repeat(4,1fr)">' +
+              '<select class="inp mb0" id="bCls-' + uid + '"></select>' +
+              '<input type="date" class="inp mb0" id="bDate-' + uid + '" value="' + today() + '">' +
+              '<input class="inp mb0" id="bSubj-' + uid + '" placeholder="מקצוע / נושא">' +
+              '<input class="inp mb0" id="bExam-' + uid + '" placeholder="שם הבוחן">' +
+            '</div>' +
+            '<div class="table-wrap entry-ui" style="margin-top:10px"><table class="tbl">' +
+              '<thead><tr><th>תלמיד</th><th style="width:130px">ציון</th></tr></thead><tbody id="bBody-' + uid + '"></tbody></table></div>' +
+            '<div style="margin-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">' +
+              '<button class="btn-primary sm" id="bSave-' + uid + '"><i class="bi bi-check-lg"></i> שמירת הציונים</button>' +
+              '<span class="tl-note" id="bHint-' + uid + '" style="font-size:.82rem"></span></div>' +
+          '</div>' : '') +
         '<div id="recList-' + uid + '"></div>' +
         '<div id="recEmpty-' + uid + '" class="empty-state" hidden><i class="bi ' + cfg.icon + '"></i><div>אין רישומים עדיין</div></div>';
       const pick = window.cv3Picker.wire(page, cfg.table);
@@ -83,6 +102,91 @@
         draw(); window.UI.toast('נוסף');
       });
       draw();
+
+      // ── מצב "טבלת כיתה" (בקשת עמנואל 23/08/2026) ──
+      // הרב רמי בוחן כיתה שלמה באותו מקצוע ובאותו יום; במסלול הרגיל הוא נאלץ להקליד
+      // תלמיד+מקצוע+בוחן מחדש לכל ילד. כאן הכותרות נבחרות פעם אחת ומזינים רק ציונים.
+      // המסלול הבודד נשאר כפי שהוא — מחנכים ממשיכים לעבוד בדיוק כמו קודם.
+      if (cfg.batch) {
+        const $b = id => page.querySelector('#' + id + '-' + uid);
+        const single = page.querySelector('.entry-card:not([id^="recBatch"])');
+        const batch = $b('recBatch'), modeBtn = $b('recMode');
+        const clsSel = $b('bCls'), dEl = $b('bDate'), sEl = $b('bSubj'), xEl = $b('bExam');
+        let batchOn = false;
+        const classes = (window.cv3Students ? await window.cv3Students.getClasses() : []) || [];
+        clsSel.innerHTML = '<option value="">בחר כיתה…</option>' +
+          classes.map(c => '<option value="' + c.id + '">' + esc(c.name) + '</option>').join('');
+        if (window.currentUser && window.currentUser.name) xEl.value = window.currentUser.name;
+
+        modeBtn.addEventListener('click', () => {
+          batchOn = !batchOn;
+          batch.hidden = !batchOn;
+          if (single) single.hidden = batchOn;
+          modeBtn.innerHTML = batchOn ? '<i class="bi bi-person-plus"></i> רישום בודד' : '<i class="bi bi-table"></i> טבלת כיתה';
+          if (batchOn) drawBatch();
+        });
+
+        // רשומה קיימת לאותו תלמיד+תאריך+מקצוע — כדי לערוך במקום לשכפל
+        const existing = (sid) => {
+          const d = dEl.value, sub = (sEl.value || '').trim();
+          if (!d || !sub) return null;
+          return data.find(r => r.student_id == sid && r[cfg.dateField] === d && String(r.subject || '').trim() === sub) || null;
+        };
+        function drawBatch() {
+          const kids = studs.filter(s => String(s.class_id) === String(clsSel.value));
+          const body = $b('bBody');
+          if (!clsSel.value) { body.innerHTML = '<tr><td colspan="2">בחר כיתה כדי להציג את התלמידים</td></tr>'; return; }
+          if (!kids.length) { body.innerHTML = '<tr><td colspan="2">אין תלמידים בכיתה</td></tr>'; return; }
+          body.innerHTML = kids.map(s => {
+            const ex = existing(s.id);
+            return '<tr><td>' + esc(window.UI.fullName ? window.UI.fullName(s) : s.name) + '</td>' +
+              '<td><input type="number" class="inp mb0 b-grade" data-sid="' + s.id + '" min="0" max="100" step="1" ' +
+              'inputmode="numeric" placeholder="—" style="width:100%" value="' + esc(ex && ex.grade != null ? ex.grade : '') + '"></td></tr>';
+          }).join('');
+          const filled = kids.filter(s => existing(s.id)).length;
+          $b('bHint').textContent = filled ? filled + ' מתוך ' + kids.length + ' כבר הוזנו למקצוע ולתאריך האלה — עריכה תעדכן אותם' : '';
+        }
+        [clsSel, dEl, sEl].forEach(el => el.addEventListener('change', drawBatch));
+
+        $b('bSave').addEventListener('click', async () => {
+          const sub = (sEl.value || '').trim(), d = dEl.value, exm = (xEl.value || '').trim();
+          if (!clsSel.value) { window.UI.toast('בחר כיתה', 'err'); return; }
+          if (!d) { window.UI.toast('בחר תאריך', 'err'); return; }
+          if (!sub) { window.UI.toast('רשום מקצוע / נושא', 'err'); return; }
+          const inputs = [...page.querySelectorAll('.b-grade')];
+          const items = [];
+          for (const el of inputs) {
+            const raw = String(el.value || '').trim();
+            if (!raw) continue;                       // ריק = לא נבחן / לא מזינים. לא נשמר כאפס.
+            const g = Number(raw);
+            if (!isFinite(g) || g < 0 || g > 100) { window.UI.toast('ציון חייב להיות מספר בין 0 ל-100', 'err'); el.focus(); return; }
+            items.push({ sid: Number(el.dataset.sid), grade: g });
+          }
+          if (!items.length) { window.UI.toast('לא מולא אף ציון', 'err'); return; }
+          let added = 0, updated = 0, failed = 0;
+          for (const it of items) {
+            const ex = existing(it.sid);
+            if (ex) {
+              const r = await window.store.update(cfg.table, ex.id, { grade: it.grade, examiner: exm || null });
+              // RLS חוסם בשקט: ok:true בלי שורה. בלי הבדיקה הזו "נשמר" היה שקר.
+              if (!r || r.ok === false || (Array.isArray(r.data) && !r.data.length && !r.demo)) failed++;
+              else { ex.grade = it.grade; ex.examiner = exm || null; updated++; }
+            } else {
+              const row = { student_id: it.sid, subject: sub, grade: it.grade, examiner: exm || null };
+              row[cfg.dateField] = d;
+              const r = await add(cfg.table, row);
+              if (!r.ok) failed++;
+              else { data = data.concat([(r.data && r.data[0]) || row]); added++; }
+            }
+          }
+          draw(); drawBatch();
+          const parts = [];
+          if (added) parts.push('נוספו ' + added);
+          if (updated) parts.push('עודכנו ' + updated);
+          if (failed) parts.push('נכשלו ' + failed);
+          window.UI.toast(parts.join(' · '), failed ? 'err' : 'ok');
+        });
+      }
     };
   }
 
@@ -152,7 +256,7 @@
   }
 
   const R = window.PAGE_RENDERERS = window.PAGE_RENDERERS || {};
-  R.tests = makeRecord({ table: 'tests', title: 'מבחנים', icon: 'bi-card-checklist', dateField: 'test_date', fields: [{ k: 'subject', label: 'מקצוע / נושא' }, { k: 'grade', label: 'ציון', type: 'number' }, { k: 'examiner', label: 'שם הבוחן' }] });
+  R.tests = makeRecord({ table: 'tests', title: 'מבחנים', icon: 'bi-card-checklist', dateField: 'test_date', batch: true, fields: [{ k: 'subject', label: 'מקצוע / נושא' }, { k: 'grade', label: 'ציון', type: 'number' }, { k: 'examiner', label: 'שם הבוחן' }] });
   R.functioning = makeRecord({ table: 'functioning', title: 'ציוני תפקוד', icon: 'bi-bar-chart-line', fields: [{ k: 'area', label: 'תחום' }, { k: 'score', label: 'ציון', type: 'number' }] });
   R.conversations = makeRecord({ table: 'conversations', title: 'שיחות עם תלמידים', icon: 'bi-chat-dots', fields: [{ k: 'summary', label: 'סיכום השיחה', wide: true }] });
   R.meetings = makeRecord({ table: 'meetings', title: 'אסיפות הורים', icon: 'bi-people', fields: [{ k: 'attendees', label: 'משתתפים' }, { k: 'summary', label: 'סיכום', wide: true }] });

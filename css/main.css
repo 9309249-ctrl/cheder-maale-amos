@@ -298,6 +298,8 @@ body.mode-readonly .qr-card input, body.mode-readonly .qr-card select, body.mode
 body.mode-readonly .btn-primary.always-on, body.mode-writeonly .btn-primary.always-on{ display:inline-flex !important; }
 /* צפייה בלבד: להסתיר את כרטיס ההזנה במקום להשאיר אותו מת (שדות pointer-events:none),
    ולהסביר למה. 23/08/2026 — מפקח ראה טופס "רישום חדש" שלא הגיב, וזה נראה כמו תקלה. */
+/* כפתור המעבר ל"טבלת כיתה" הוא כלי הזנה — אין לו מקום במצב צפייה בלבד */
+body.mode-readonly [id^="recMode-"]{ display:none !important }
 .entry-note{ display:none }
 body.mode-readonly .entry-card{ display:none !important }
 body.mode-readonly .entry-note{ display:block; background:#eff6ff; border:1px solid #bfdbfe; color:#1e40af;
