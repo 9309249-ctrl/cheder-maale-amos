@@ -132,29 +132,36 @@
           if (!d || !sub) return null;
           return data.find(r => r.student_id == sid && r[cfg.dateField] === d && String(r.subject || '').trim() === sub) || null;
         };
-        // full=true → בנייה מאפס (החלפת כיתה). full=false → שמירה על ציונים שהמשתמש כבר הקליד.
-        // ⚠️ קריטי: שינוי תאריך/מקצוע — וגם *יציאה מהשדה* — מפעיל redraw. בלי שמירת מה שהוקלד,
-        //    מורה שמילא ציונים ואז תיקן את שם המקצוע היה מאבד את כולם בלי שום אזהרה.
-        //    לכן שדה שהמשתמש נגע בו מסומן data-dirty ומועתק לבנייה מחדש.
-        function drawBatch(full) {
+        // ⚠️ אסור לבנות מחדש את הטבלה בשינוי תאריך/מקצוע.
+        //    יציאה משדה המקצוע מפעילה change, ואם בונים מחדש — השורה שהמורה בדיוק לוחץ עליה
+        //    נהרסת מתחת לאצבע והערך שהוקלד נעלם. נתפס ב-QA.
+        //    לכן: בניית שורות רק בהחלפת כיתה; שינוי תאריך/מקצוע רק מרענן ערכים במקום.
+        function buildRows() {
           const kids = studs.filter(s => String(s.class_id) === String(clsSel.value));
           const body = $b('bBody');
-          const typed = {};
-          if (!full) page.querySelectorAll('.b-grade').forEach(el => { if (el.dataset.dirty === '1' && el.value !== '') typed[el.dataset.sid] = el.value; });
           if (!clsSel.value) { body.innerHTML = '<tr><td colspan="2">בחר כיתה כדי להציג את התלמידים</td></tr>'; $b('bHint').textContent = ''; return; }
           if (!kids.length) { body.innerHTML = '<tr><td colspan="2">אין תלמידים בכיתה</td></tr>'; $b('bHint').textContent = ''; return; }
-          body.innerHTML = kids.map(s => {
-            const ex = existing(s.id);
-            const mine = typed[s.id];
-            const val = mine != null ? mine : (ex && ex.grade != null ? ex.grade : '');
-            return '<tr><td>' + esc(window.UI.fullName ? window.UI.fullName(s) : s.name) + '</td>' +
-              '<td><input type="number" class="inp mb0 b-grade" data-sid="' + s.id + '"' + (mine != null ? ' data-dirty="1"' : '') +
-              ' min="0" max="100" step="1" inputmode="numeric" placeholder="—" style="width:100%" value="' + esc(val) + '"></td></tr>';
-          }).join('');
+          body.innerHTML = kids.map(s =>
+            '<tr><td>' + esc(window.UI.fullName ? window.UI.fullName(s) : s.name) + '</td>' +
+            '<td><input type="number" class="inp mb0 b-grade" data-sid="' + s.id + '" min="0" max="100" step="1" ' +
+            'inputmode="numeric" placeholder="—" style="width:100%"></td></tr>').join('');
           body.querySelectorAll('.b-grade').forEach(el => el.addEventListener('input', () => { el.dataset.dirty = '1'; }));
-          const filled = kids.filter(s => existing(s.id)).length;
-          $b('bHint').textContent = filled ? filled + ' מתוך ' + kids.length + ' כבר הוזנו למקצוע ולתאריך האלה — עריכה תעדכן אותם' : '';
+          refreshPrefill();
         }
+        // ממלא מהמסד רק שדות שהמורה לא נגע בהם — מה שהוקלד ולא נשמר לעולם לא נדרס.
+        function refreshPrefill() {
+          const inputs = [...page.querySelectorAll('.b-grade')];
+          if (!inputs.length) return;
+          let filled = 0;
+          inputs.forEach(el => {
+            const ex = existing(Number(el.dataset.sid));
+            if (ex) filled++;
+            if (el.dataset.dirty === '1') return;
+            el.value = ex && ex.grade != null ? ex.grade : '';
+          });
+          $b('bHint').textContent = filled ? filled + ' מתוך ' + inputs.length + ' כבר הוזנו למקצוע ולתאריך האלה — עריכה תעדכן אותם' : '';
+        }
+        function drawBatch(full) { if (full) buildRows(); else refreshPrefill(); }
         clsSel.addEventListener('change', () => drawBatch(true));      // כיתה אחרת = תלמידים אחרים
         [dEl, sEl].forEach(el => el.addEventListener('change', () => drawBatch(false)));
 
@@ -189,7 +196,8 @@
               else { data = data.concat([(r.data && r.data[0]) || row]); added++; }
             }
           }
-          draw(); drawBatch(true);
+          page.querySelectorAll('.b-grade').forEach(el => { delete el.dataset.dirty; });
+          draw(); refreshPrefill();
           const parts = [];
           if (added) parts.push('נוספו ' + added);
           if (updated) parts.push('עודכנו ' + updated);
