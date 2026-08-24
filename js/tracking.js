@@ -123,7 +123,7 @@
           batch.hidden = !batchOn;
           if (single) single.hidden = batchOn;
           modeBtn.innerHTML = batchOn ? '<i class="bi bi-person-plus"></i> רישום בודד' : '<i class="bi bi-table"></i> טבלת כיתה';
-          if (batchOn) drawBatch();
+          if (batchOn) drawBatch(true);
         });
 
         // רשומה קיימת לאותו תלמיד+תאריך+מקצוע — כדי לערוך במקום לשכפל
@@ -132,21 +132,31 @@
           if (!d || !sub) return null;
           return data.find(r => r.student_id == sid && r[cfg.dateField] === d && String(r.subject || '').trim() === sub) || null;
         };
-        function drawBatch() {
+        // full=true → בנייה מאפס (החלפת כיתה). full=false → שמירה על ציונים שהמשתמש כבר הקליד.
+        // ⚠️ קריטי: שינוי תאריך/מקצוע — וגם *יציאה מהשדה* — מפעיל redraw. בלי שמירת מה שהוקלד,
+        //    מורה שמילא ציונים ואז תיקן את שם המקצוע היה מאבד את כולם בלי שום אזהרה.
+        //    לכן שדה שהמשתמש נגע בו מסומן data-dirty ומועתק לבנייה מחדש.
+        function drawBatch(full) {
           const kids = studs.filter(s => String(s.class_id) === String(clsSel.value));
           const body = $b('bBody');
-          if (!clsSel.value) { body.innerHTML = '<tr><td colspan="2">בחר כיתה כדי להציג את התלמידים</td></tr>'; return; }
-          if (!kids.length) { body.innerHTML = '<tr><td colspan="2">אין תלמידים בכיתה</td></tr>'; return; }
+          const typed = {};
+          if (!full) page.querySelectorAll('.b-grade').forEach(el => { if (el.dataset.dirty === '1' && el.value !== '') typed[el.dataset.sid] = el.value; });
+          if (!clsSel.value) { body.innerHTML = '<tr><td colspan="2">בחר כיתה כדי להציג את התלמידים</td></tr>'; $b('bHint').textContent = ''; return; }
+          if (!kids.length) { body.innerHTML = '<tr><td colspan="2">אין תלמידים בכיתה</td></tr>'; $b('bHint').textContent = ''; return; }
           body.innerHTML = kids.map(s => {
             const ex = existing(s.id);
+            const mine = typed[s.id];
+            const val = mine != null ? mine : (ex && ex.grade != null ? ex.grade : '');
             return '<tr><td>' + esc(window.UI.fullName ? window.UI.fullName(s) : s.name) + '</td>' +
-              '<td><input type="number" class="inp mb0 b-grade" data-sid="' + s.id + '" min="0" max="100" step="1" ' +
-              'inputmode="numeric" placeholder="—" style="width:100%" value="' + esc(ex && ex.grade != null ? ex.grade : '') + '"></td></tr>';
+              '<td><input type="number" class="inp mb0 b-grade" data-sid="' + s.id + '"' + (mine != null ? ' data-dirty="1"' : '') +
+              ' min="0" max="100" step="1" inputmode="numeric" placeholder="—" style="width:100%" value="' + esc(val) + '"></td></tr>';
           }).join('');
+          body.querySelectorAll('.b-grade').forEach(el => el.addEventListener('input', () => { el.dataset.dirty = '1'; }));
           const filled = kids.filter(s => existing(s.id)).length;
           $b('bHint').textContent = filled ? filled + ' מתוך ' + kids.length + ' כבר הוזנו למקצוע ולתאריך האלה — עריכה תעדכן אותם' : '';
         }
-        [clsSel, dEl, sEl].forEach(el => el.addEventListener('change', drawBatch));
+        clsSel.addEventListener('change', () => drawBatch(true));      // כיתה אחרת = תלמידים אחרים
+        [dEl, sEl].forEach(el => el.addEventListener('change', () => drawBatch(false)));
 
         $b('bSave').addEventListener('click', async () => {
           const sub = (sEl.value || '').trim(), d = dEl.value, exm = (xEl.value || '').trim();
@@ -179,7 +189,7 @@
               else { data = data.concat([(r.data && r.data[0]) || row]); added++; }
             }
           }
-          draw(); drawBatch();
+          draw(); drawBatch(true);
           const parts = [];
           if (added) parts.push('נוספו ' + added);
           if (updated) parts.push('עודכנו ' + updated);
