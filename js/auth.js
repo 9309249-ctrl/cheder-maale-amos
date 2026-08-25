@@ -76,7 +76,9 @@
       case 'מפקח':  return { perms: null, mode: 'readonly', scoped: false };       // הכל, ללא שינויים
       case 'מזכירה': return { perms: money, mode: 'full', scoped: false };          // כספים בלבד
       case 'מחנך':  return { perms: nonMoney, mode: 'full', scoped: true };        // הכל חוץ מכספים/ניהול, כיתתו בלבד
-      case 'מלמד':  return { perms: entry, mode: 'writeonly', scoped: true };       // הזנה בלבד, כיתתו בלבד
+      // 25/08/2026 (עמנואל): מלמד היה 'writeonly' — הוא הזין דיווח ואז ה-CSS הסתיר ממנו
+      // את כל הרשימות, כך שלא ראה אפילו את מה שהוא עצמו כתב. 'own' = מזין + רואה את שלו בלבד.
+      case 'מלמד':  return { perms: entry, mode: 'own', scoped: true };            // הזנה + צפייה בדיווחים שלו
       default:      return { perms: null, mode: 'full', scoped: true };             // legacy מורה — כיתתו בלבד (ברירת מחדל מאובטחת)
     }
   }
@@ -88,7 +90,7 @@
     // הרשאות מסך: אם המנהל הגדיר perms פרטניות למשתמש — הן גוברות; אחרת ברירת-מחדל לפי התפקיד
     A.perms = (u.perms && u.perms.length) ? u.perms : caps.perms;
     // רמת גישה: אם המנהל הגדיר למשתמש override (full/readonly/writeonly) — גובר על ברירת-המחדל של התפקיד
-    A.mode = (u.access_mode && ['full', 'readonly', 'writeonly'].includes(u.access_mode)) ? u.access_mode : caps.mode;
+    A.mode = (u.access_mode && ['full', 'readonly', 'writeonly', 'own'].includes(u.access_mode)) ? u.access_mode : caps.mode;
     A.scope = null;                    // null = הכל (מנהל/מפקח/מזכירה); מערך = כיתות מורשות
     // כל תפקיד מלמד/מחנך (caps.scoped) מוגבל לכיתות המשויכות לו בלבד. בלי שיוך כיתה — A.scope=[] → לא רואה אף תלמיד.
     // תואם לאכיפת ה-RLS בשרת (has_class_access); כאן זו הגבלת התצוגה, החשובה במיוחד במצב הדגמה שאין בו RLS.
@@ -96,12 +98,24 @@
       try { const acc = await window.store.list('user_class_access', { eq: { user_id: u.id } }); A.scope = acc.map(x => x.class_id); } catch (_) { A.scope = []; }
     }
     // אכיפת מצב צפייה/הזנה דרך class על ה-body (CSS מסתיר כפתורי פעולה / רשימות)
-    document.body.classList.remove('mode-readonly', 'mode-writeonly');
+    document.body.classList.remove('mode-readonly', 'mode-writeonly', 'mode-own');
     if (A.mode === 'readonly') document.body.classList.add('mode-readonly');
     else if (A.mode === 'writeonly') document.body.classList.add('mode-writeonly');
+    else if (A.mode === 'own') document.body.classList.add('mode-own');
+    renderModeNote();
     renderUserInfo();
     filterByPermissions();
     if (window.showPage) window.showPage('home');
+  }
+
+  // הסבר קבוע למי שרואה רק את הדיווחים שלו — אחרת "חסרים לי דיווחים" נראה כמו תקלה.
+  function renderModeNote() {
+    const box = document.getElementById('modeNote');
+    if (!box) return;
+    const on = A.currentUser && A.mode === 'own';
+    box.hidden = !on;
+    box.innerHTML = on ? '<i class="bi bi-person-check"></i> <b>מוצגים לך רק הדיווחים שאתה רשמת.</b> ' +
+      'אפשר לדווח על כל תלמיד, אבל הצפייה בדיווחים של אחרים שמורה למחנך הכיתה ולהנהלה.' : '';
   }
 
   function renderUserInfo() {
@@ -158,7 +172,8 @@
   async function logout() {
     if (!DEMO && window.sb) { try { await window.sb.auth.signOut(); } catch (_) {} }
     A.currentUser = null; window.currentUser = null;
-    document.body.classList.remove('mode-readonly', 'mode-writeonly');
+    document.body.classList.remove('mode-readonly', 'mode-writeonly', 'mode-own');
+    renderModeNote();
     renderUserInfo();
     if (window.showPage) window.showPage('login');
   }
@@ -219,12 +234,14 @@
     // מזהה המשתמש הנוכחי (בחי = uuid של הפרופיל = auth.uid() = created_by ברשומות).
     get userId() { return A.currentUser ? A.currentUser.id : null; },
     // רואה רק את הדיווחים שרשם בעצמו: מלמד (רב) או צוות-מוגבל. תואם ל-sees_only_own_reports() ב-RLS.
+    // תואם ל-sees_only_own_reports() ב-RLS (migration_author_and_own_reports.sql):
+    // מנהל/מפקח רואים הכל, מחנך רואה את כיתתו, וכל היתר — רק את מה שהם עצמם רשמו.
+    // ⚠️ זו הגנת-תצוגה בלבד; המקור האמיתי הוא ה-RLS בשרת. שינוי כאן בלי לשנות שם = פער.
     ownReportsOnly: function () {
       const u = A.currentUser; if (!u) return false;
       if (u.role === 'מנהל' || u.role === 'מפקח') return false;
-      if (u.role === 'מלמד') return true;
-      const p = A.perms || [];
-      return (p.indexOf('stu_names') !== -1 || p.indexOf('card_own') !== -1) && p.indexOf('students') === -1;
+      if (A.mode === 'own') return true;
+      return u.role !== 'מחנך';
     },
     // גישה מלאה לתלמידים (כרטיס מלא + עריכה): מנהל/מפקח, או מי שיש לו מסך 'students' מלא (perms=null=ברירת מחדל של התפקיד).
     fullStudents: function () { const u = A.currentUser; if (!u) return false; if (u.role === 'מנהל' || u.role === 'מפקח') return true; return !A.perms || A.perms.indexOf('students') !== -1; },

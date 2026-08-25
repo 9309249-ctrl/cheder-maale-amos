@@ -26,6 +26,8 @@
       const studs = await students();
       const nameOf = id => { const s = studs.find(x => x.id == id); return s ? s.name : '—'; };
       const rows = await list(cfg.table);
+      // "מי רשם" — חייב להיטען לפני draw(), אחרת כל השורות יוצגו "לא ידוע".
+      if (window.Author) await window.Author.load();
       const pickHtml = await window.cv3Picker.html(cfg.table);
       // מחולל הרשומות משמש כמה מודולים (מבחנים, רפואי, שיחות, אסיפות, תפקוד),
       // וכולם קיימים ב-DOM במקביל. מזהים קבועים יצרו כפילות ב-HTML, כך ש-
@@ -73,19 +75,42 @@
       let data = rows;
       function draw() {
         page.querySelector('#recList-' + uid).innerHTML = data.slice().reverse().map(x =>
-          '<div class="tl-item"><span class="sev-dot mid"></span><div class="tl-main"><strong>' + esc(nameOf(x.student_id)) + '</strong> · ' +
-          cfg.fields.map(f => esc(x[f.k])).filter(Boolean).join(' · ') + '</div><div class="tl-meta">' + esc(x[cfg.dateField || 'date'] || x.date || x.event_date || '') + '</div>' +
+          '<div class="tl-item tl-click" data-open="' + x.id + '" title="לחץ לפרטי הרישום"><span class="sev-dot mid"></span><div class="tl-main"><strong>' + esc(nameOf(x.student_id)) + '</strong> · ' +
+          cfg.fields.map(f => esc(x[f.k])).filter(Boolean).join(' · ') +
+          (window.Author ? window.Author.chip(x.created_by) : '') +
+          '</div><div class="tl-meta">' + esc(x[cfg.dateField || 'date'] || x.date || x.event_date || '') + '</div>' +
           '<button class="mini danger" data-del="' + x.id + '"><i class="bi bi-trash"></i></button></div>').join('');
         page.querySelector('#recEmpty-' + uid).hidden = data.length > 0;
-        page.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', async () => {
+        page.querySelectorAll('[data-open]').forEach(it => it.addEventListener('click', ev => {
+          if (ev.target.closest('[data-del]')) return;
+          const x = data.find(r => String(r.id) === it.dataset.open); if (x) openRec(x);
+        }));
+        page.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', async (ev) => {
+          ev.stopPropagation();
           const ok = await window.UI.confirm('למחוק?'); if (!ok) return;
           await del(cfg.table, Number(b.dataset.del)); data = data.filter(x => x.id != b.dataset.del); draw(); window.UI.toast('נמחק');
         }));
       }
+      // חלון פרטי רישום — כולל "מי רשם" (בקשת עמנואל 25/08/2026)
+      function openRec(x) {
+        const A = window.Author, dash = '<span style="color:var(--muted)">—</span>';
+        const row = (lbl, val) => '<div class="det-row"><span class="det-lbl">' + lbl + '</span><span class="det-val">' + (val || dash) + '</span></div>';
+        window.UI.modal({
+          title: 'פרטי הרישום', cancelLabel: 'סגירה',
+          bodyHTML: '<div class="det-grid">' + row('תלמיד', esc(nameOf(x.student_id))) +
+            cfg.fields.map(f => row(f.label, esc(x[f.k] == null ? '' : x[f.k]))).join('') +
+            row('תאריך', esc(x[cfg.dateField || 'date'] || x.date || x.event_date || '')) + '</div>' +
+            '<div class="det-sec"><h4><i class="bi bi-person-badge"></i> מי רשם</h4><div class="det-grid">' +
+              row('שם', A ? esc(A.name(x.created_by)) : '') +
+              row('תפקיד', (A && A.role(x.created_by)) ? esc(A.role(x.created_by)) : '') +
+            '</div></div>',
+        });
+      }
       page.querySelector('#recCsv-' + uid).addEventListener('click', () => {
-        const head = ['תלמיד'].concat(cfg.fields.map(f => f.label)).concat(['תאריך']);
+        const head = ['תלמיד'].concat(cfg.fields.map(f => f.label)).concat(['תאריך', 'נרשם ע"י', 'תפקיד']);
         const lines = [head.join(',')].concat(data.map(x =>
-          [nameOf(x.student_id)].concat(cfg.fields.map(f => x[f.k])).concat([x[cfg.dateField || 'date'] || x.date || x.event_date || ''])
+          [nameOf(x.student_id)].concat(cfg.fields.map(f => x[f.k])).concat([x[cfg.dateField || 'date'] || x.date || x.event_date || '',
+            (window.Author ? window.Author.name(x.created_by) : ''), (window.Author ? window.Author.role(x.created_by) : '')])
             .map(v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(',')));
         const blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
         const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = cfg.table + '.csv'; a.click();
@@ -98,7 +123,8 @@
         if (cfg.dateField !== null) row[cfg.dateField || 'date'] = today();
         cfg.fields.forEach(f => { row[f.k] = page.querySelector('[data-f="' + f.k + '"]').value.trim(); });
         const r = await add(cfg.table, row); if (!r.ok) { window.UI.toast('שגיאה בשמירה', 'err'); return; }
-        data = data.concat([row]); cfg.fields.forEach(f => page.querySelector('[data-f="' + f.k + '"]').value = '');
+        // השורה שחוזרת מה-DB היא זו שנושאת id + created_by; בלעדיה השורה החדשה מוצגת "לא ידוע".
+        data = data.concat([(r.data && r.data[0]) || row]); cfg.fields.forEach(f => page.querySelector('[data-f="' + f.k + '"]').value = '');
         draw(); window.UI.toast('נוסף');
       });
       draw();
@@ -214,7 +240,10 @@
     const classes = window.cv3Students ? await window.cv3Students.getClasses() : [];
     const has = new Set(studs.map(s => s.class_id));
     const clsOpts = classes.filter(c => has.has(c.id)).map(c => '<option value="' + c.id + '">' + esc(c.name) + '</option>').join('');
+    if (window.Author) await window.Author.load();
     const state = {};
+    // מי סימן את הנוכחות של אותו יום — עמנואל ביקש לדעת אם זה המחנך בבוקר או המלמד בצהריים.
+    const marker = {};
     page.innerHTML =
       '<div class="page-head"><button class="back" onclick="showPage(\'home\')">→ חזרה לתפריט</button><h2>נוכחות</h2></div>' +
       // entry-ui: במסך הנוכחות הטבלה והסרגל *הם* טופס ההזנה, ולא תצוגת נתונים.
@@ -224,7 +253,7 @@
         '<select class="inp mb0" id="attClass"><option value="">כל הכיתות</option>' + clsOpts + '</select>' +
         '<input type="search" class="inp mb0" id="attSearch" placeholder="🔍 חיפוש תלמיד…">' +
         '<span class="count-line" id="attSum" style="align-self:center"></span></div>' +
-      '<div class="table-wrap entry-ui"><table class="tbl"><thead><tr><th>תלמיד</th><th>נוכחות</th></tr></thead><tbody id="attBody"></tbody></table></div>';
+      '<div class="table-wrap entry-ui"><table class="tbl"><thead><tr><th>תלמיד</th><th>נוכחות</th><th style="width:150px">סומן ע"י</th></tr></thead><tbody id="attBody"></tbody></table></div>';
     function visible() {
       const cid = page.querySelector('#attClass').value, q = (page.querySelector('#attSearch').value || '').trim();
       return studs.filter(s => (!cid || String(s.class_id) === cid) && (!q || (s.name || '').includes(q)));
@@ -233,25 +262,30 @@
       page.querySelector('#attBody').innerHTML = visible().map(s => {
         const v = state[s.id] || '';
         const btn = (val, lbl, cls) => '<button class="att-btn ' + cls + (v === val ? ' on' : '') + '" data-sid="' + s.id + '" data-v="' + val + '">' + lbl + '</button>';
+        const by = v ? (window.Author ? window.Author.cell(marker[s.id]) : '') : '<span style="color:var(--muted)">—</span>';
         return '<tr><td><span class="ava">' + esc((s.name || '?').slice(0, 2)) + '</span> ' + esc(s.name) + '</td>' +
-          '<td class="att-cell">' + btn('present', 'נוכח', 'p') + btn('late', 'איחור', 'l') + btn('absent', 'נעדר', 'a') + '</td></tr>';
+          '<td class="att-cell">' + btn('present', 'נוכח', 'p') + btn('late', 'איחור', 'l') + btn('absent', 'נעדר', 'a') + '</td>' +
+          '<td>' + by + '</td></tr>';
       }).join('');
       const c = { present: 0, late: 0, absent: 0 };
       Object.values(state).forEach(v => c[v] != null && c[v]++);
       page.querySelector('#attSum').textContent = 'נוכחים ' + c.present + ' · איחורים ' + c.late + ' · נעדרים ' + c.absent;
       page.querySelectorAll('.att-btn').forEach(b => b.addEventListener('click', async () => {
         const sid = Number(b.dataset.sid), v = b.dataset.v, d = page.querySelector('#attDate').value;
-        state[sid] = v; draw();
+        // הסימון האחרון קובע — ולכן גם "סומן ע\"י" עובר למי שסימן עכשיו.
+        state[sid] = v; marker[sid] = window.Auth ? window.Auth.userId : null; draw();
         const all = await list('attendance');
         for (const a of all) if (a.student_id == sid && a.date === d) await del('attendance', a.id);
-        await add('attendance', { student_id: sid, date: d, status: v });
+        const r = await add('attendance', { student_id: sid, date: d, status: v });
+        if (r && r.data && r.data[0]) { marker[sid] = r.data[0].created_by; draw(); }
         window.UI.toast('נשמר');
       }));
     }
     async function loadDate() {
       Object.keys(state).forEach(k => delete state[k]);
       const d = page.querySelector('#attDate').value;
-      (await list('attendance')).filter(a => a.date === d).forEach(a => { state[a.student_id] = a.status; });
+      Object.keys(marker).forEach(k => delete marker[k]);
+      (await list('attendance')).filter(a => a.date === d).forEach(a => { state[a.student_id] = a.status; marker[a.student_id] = a.created_by; });
       draw();
     }
     page.querySelector('#attDate').addEventListener('change', loadDate);

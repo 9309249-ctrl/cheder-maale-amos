@@ -223,7 +223,7 @@
             ['מנהל', 'מחנך', 'מלמד', 'מפקח', 'מזכירה'].map(r => '<option' + ((u.role === r || (!u.role && r === 'מחנך')) ? ' selected' : '') + '>' + r + '</option>').join('') +
             '</select></label>' +
           '<label class="fld"><span>רמת גישה <small style="font-weight:400;color:var(--muted)">— מה מותר לו לעשות</small></span><select class="inp mb0" id="u_mode">' +
-            [['', 'ברירת מחדל (לפי תפקיד)'], ['full', 'גישה מלאה — צפייה + עריכה'], ['readonly', 'צפייה בלבד — בלי לערוך'], ['writeonly', 'הזנה בלבד — בלי לצפות']].map(o => '<option value="' + o[0] + '"' + (((u.access_mode || '') === o[0]) ? ' selected' : '') + '>' + o[1] + '</option>').join('') +
+            [['', 'ברירת מחדל (לפי תפקיד)'], ['full', 'גישה מלאה — צפייה + עריכה'], ['readonly', 'צפייה בלבד — בלי לערוך'], ['own', 'הזנה + הדיווחים שלי בלבד'], ['writeonly', 'הזנה בלבד — בלי לצפות כלל']].map(o => '<option value="' + o[0] + '"' + (((u.access_mode || '') === o[0]) ? ' selected' : '') + '>' + o[1] + '</option>').join('') +
             '</select></label>' +
           '<div class="fld fld-wide"><span>כיתות מורשות <small style="font-weight:400;color:var(--muted)">— בלי שיוך כיתה, לא רואה אף תלמיד</small></span><div class="cb-grid" id="classGrid">' + (clsBoxes || '<span class="tl-note">אין כיתות — הוסף כיתה קודם</span>') + '</div>' +
             (clsBoxes ? '<div style="margin-top:7px;display:flex;gap:6px"><button type="button" class="btn-ghost sm" id="clsAll">כל הכיתות</button><button type="button" class="btn-ghost sm" id="clsNone">נקה הכל</button></div>' : '') + '</div>' +

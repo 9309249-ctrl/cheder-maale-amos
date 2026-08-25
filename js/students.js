@@ -127,13 +127,17 @@
         (window.cv3ReadAssess ? window.cv3ReadAssess.cats() : Promise.resolve([])),
         (window.cv3ReadAssess ? window.cv3ReadAssess.forStudent(s.id) : Promise.resolve([])),
       ]);
+      if (window.Author) await window.Author.load();
       const catName = id => { const c = cats.find(x => x.id == id); return c ? c.name : ''; };
       // כרטיס "מסייע חכם" אחיד — אותו רכיב גרפי כמו במגירה הצדדית, מוטמע בראש הכרטיס
       let aiHtml = '';
       if (window.cv3AI) { try { aiHtml = window.cv3AI.cardHtml(await window.cv3AI.summaryFor(s.id)); } catch (_) { aiHtml = ''; } }
       const row = (lbl, val) => val ? '<div class="det-row"><span class="det-lbl">' + lbl + '</span><span class="det-val">' + esc(val) + '</span></div>' : '';
       const sevc = x => x === 'גבוהה' ? 'hi' : x === 'נמוכה' ? 'lo' : 'mid';
-      const li = (main, meta, dot) => '<div class="det-item">' + (dot ? '<span class="sev-dot ' + dot + '"></span>' : '') + '<span class="di-main">' + main + '</span><span class="di-meta">' + esc(meta || '') + '</span></div>';
+      // הפרמטר הרביעי = created_by. עמנואל ביקש לדעת בכל דיווח מי רשם אותו.
+      const li = (main, meta, dot, by) => '<div class="det-item">' + (dot ? '<span class="sev-dot ' + dot + '"></span>' : '') +
+        '<span class="di-main">' + main + (by !== undefined && window.Author ? ' ' + window.Author.chip(by) : '') +
+        '</span><span class="di-meta">' + esc(meta || '') + '</span></div>';
       const sec = (title, icon, items, fmt) => items.length ? ('<div class="det-sec"><h4><i class="bi ' + icon + '"></i> ' + title + ' <span class="det-badge">' + items.length + '</span></h4>' + items.slice(-4).reverse().map(fmt).join('') + '</div>') : '';
       const attC = { present: 0, late: 0, absent: 0 }; att.forEach(a => attC[a.status] != null && attC[a.status]++);
       // משימות הקשורות לתלמיד — תאריך יעד בעברית + צ'יפ סטטוס (מראה זהה לסקשנים קריאה/כתיבה/מבחנים)
@@ -160,14 +164,14 @@
           '<div class="ds"><b>' + tst.length + '</b><span>מבחנים</span></div>' +
           '<div class="ds"><b>' + (med.length ? '⚠' : '—') + '</b><span>רפואי</span></div>' +
         '</div>' +
-        sec('התנהגות', 'bi-clipboard-check', beh, e => li('<strong>' + esc(catName(e.category_id)) + '</strong>' + (e.note ? ' — ' + esc(e.note) : ''), e.event_date, sevc(e.severity))) +
-        sec('מבחנים', 'bi-card-checklist', tst, t => li(esc(t.subject) + ' · <strong>' + esc(t.grade) + '</strong>', t.date)) +
-        sec('ציוני תפקוד', 'bi-bar-chart-line', fnc, f => li(esc(f.area) + ' · <strong>' + esc(f.score) + '</strong>', f.date)) +
-        sec('רפואי', 'bi-capsule', med, x => li('<strong>' + esc(x.name) + '</strong>' + (x.details ? ' — ' + esc(x.details) : ''), x.kind === 'allergy' ? 'אלרגיה' : 'תרופה', 'hi')) +
-        sec('שיחות', 'bi-chat-dots', cnv, c => li(esc(c.summary), c.date)) +
-        sec('אסיפות הורים', 'bi-people', mtg, x => li(esc(x.summary), x.date)) +
-        sec('קריאה', 'bi-book', rdg, x => li('רמה: ' + esc(x.level) + (x.note ? ' — ' + esc(x.note) : ''), x.date)) +
-        sec('כתיבה', 'bi-pencil-square', wrt, x => li('רמה: ' + esc(x.level), x.date)) +
+        sec('התנהגות', 'bi-clipboard-check', beh, e => li('<strong>' + esc(catName(e.category_id)) + '</strong>' + (e.note ? ' — ' + esc(e.note) : ''), e.event_date, sevc(e.severity), e.created_by)) +
+        sec('מבחנים', 'bi-card-checklist', tst, t => li(esc(t.subject) + ' · <strong>' + esc(t.grade) + '</strong>', t.test_date || t.date, null, t.created_by)) +
+        sec('ציוני תפקוד', 'bi-bar-chart-line', fnc, f => li(esc(f.area) + ' · <strong>' + esc(f.score) + '</strong>', f.report_date || f.date, null, f.created_by)) +
+        sec('רפואי', 'bi-capsule', med, x => li('<strong>' + esc(x.name) + '</strong>' + (x.details ? ' — ' + esc(x.details) : ''), x.kind === 'allergy' ? 'אלרגיה' : 'תרופה', 'hi', x.created_by)) +
+        sec('שיחות', 'bi-chat-dots', cnv, c => li(esc(c.summary), c.date, null, c.created_by)) +
+        sec('אסיפות הורים', 'bi-people', mtg, x => li(esc(x.summary), x.date, null, x.created_by)) +
+        sec('קריאה', 'bi-book', rdg, x => li('רמה: ' + esc(x.level) + (x.note ? ' — ' + esc(x.note) : ''), x.date, null, x.created_by)) +
+        sec('כתיבה', 'bi-pencil-square', wrt, x => li('רמה: ' + esc(x.level), x.date, null, x.created_by)) +
         (window.cv3ReadAssess ? window.cv3ReadAssess.cardSection(raCats, raAssess) : '') +
         (att.length ? '<div class="det-sec"><h4><i class="bi bi-calendar-check"></i> נוכחות <span class="det-badge">' + att.length + '</span></h4><div class="det-item"><span class="di-main">נוכח ' + att.filter(a => a.status === 'present').length + ' · איחורים ' + att.filter(a => a.status === 'late').length + ' · נעדר ' + att.filter(a => a.status === 'absent').length + '</span></div></div>' : '') +
         sec('שכר לימוד', 'bi-cash-coin', tui, t => li((esc(t.month) || '') + (t.amount ? ' · ₪' + esc(t.amount) : ''), t.status === 'paid' ? 'שולם' : 'חוב', t.status === 'paid' ? 'lo' : 'hi')) +

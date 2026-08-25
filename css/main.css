@@ -318,6 +318,15 @@ body.mode-writeonly .table-wrap.entry-ui{ display:block !important; }
 body.mode-writeonly .toolbar.entry-ui .count-line{ display:block !important; }
 /* גם רשימת התלמידים המצומצמת (מורה עם הרשאת שמות/כרטיס) חייבת להיראות במצב הזנה-בלבד */
 body.mode-writeonly .count-line.entry-ui{ display:block !important; }
+/* מצב "רק הדיווחים שלי" (מלמד) — 25/08/2026, בקשת עמנואל.
+   בניגוד ל-mode-writeonly כאן *לא* מסתירים כלום: הסינון נעשה בנתונים עצמם
+   (RLS בשרת + ownReportsOnly בלקוח), כך שהמלמד רואה בדיוק את מה שהוא רשם. */
+.mode-note{ display:none }
+body.mode-own .mode-note{ display:block; margin:10px 16px 0; background:#eff6ff; border:1px solid #bfdbfe;
+  color:#1e40af; border-radius:12px; padding:10px 14px; font-size:.86rem }
+/* שורת דיווח לחיצה — נפתחת לחלון "מי רשם" */
+.tl-click{ cursor:pointer }
+.tl-click:hover{ background:var(--hover,#f8fafc) }
 /* תצוגת מורים — בית פשוט ויפה */
 .teacher-card{background:var(--card); border:1px solid var(--line); border-radius:18px; box-shadow:var(--shadow); padding:22px; margin-bottom:18px; border-top:4px solid var(--primary)}
 .teacher-card h3{margin:0 0 14px; font-size:1.15rem; display:flex; align-items:center; gap:8px; color:var(--primary-dark)}

@@ -189,7 +189,14 @@
     }).join('');
     if (!items) return '';
     const note = (assessments[0] || {}).note;
-    return '<div class="det-sec"><h4><i class="bi bi-book-half"></i> מעקב קריאה</h4>' + items +
+    // מי העביר את ההערכות — ההערכות ממוזגות פר-פריט, ולכן מוצגת רשימת המעריכים ולא שם אחד.
+    let byLine = '';
+    if (window.Author) {
+      const uids = [...new Set(assessments.map(a => a.created_by).filter(Boolean))];
+      if (uids.length) byLine = '<div class="det-row"><span class="det-lbl">הועבר ע"י</span><span class="det-val">' +
+        uids.map(u => window.Author.chip(u)).join(' ') + '</span></div>';
+    }
+    return '<div class="det-sec"><h4><i class="bi bi-book-half"></i> מעקב קריאה</h4>' + items + byLine +
       (note ? '<div class="tl-note" style="font-size:.82rem;padding:4px 2px">' + esc(note) + '</div>' : '') + '</div>';
   }
 

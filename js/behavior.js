@@ -30,6 +30,8 @@
 
   async function renderBehavior(page) {
     const [studs, cs, evs, cls] = await Promise.all([students(), cats(), events(), classes()]);
+    // מיפוי created_by → שם+תפקיד. חייב להיטען לפני הציור, אחרת כל הדיווחים יוצגו "לא ידוע".
+    if (window.Author) await window.Author.load();
     const nameOf = id => { const s = studs.find(x => x.id == id); return s ? s.name : '—'; };
     const catOf = id => { const c = cs.find(x => x.id == id); return c ? c.name : ''; };
     const clsOf = sid => { const s = studs.find(x => x.id == sid); const c = s && cls.find(x => x.id == s.class_id); return c ? c.name : 'ללא כיתה'; };
@@ -53,7 +55,7 @@
         '</div></div>' +
       '<div class="toolbar" style="grid-template-columns:1fr auto auto auto">' + pickFilter +
         '<select class="inp mb0" id="fCat"><option value="">כל הקטגוריות</option>' + catFilterOpts + '</select>' +
-        '<select class="inp mb0" id="fGroup" title="תצוגה לפי"><option value="">ללא קיבוץ</option><option value="student">לפי תלמיד</option><option value="class">לפי כיתה</option><option value="cat">לפי קטגוריה</option></select>' +
+        '<select class="inp mb0" id="fGroup" title="תצוגה לפי"><option value="">ללא קיבוץ</option><option value="student">לפי תלמיד</option><option value="class">לפי כיתה</option><option value="cat">לפי קטגוריה</option><option value="author">לפי מי שרשם</option></select>' +
         '<span class="count-line" id="evCount" style="align-self:center"></span></div>' +
       '<div id="timeline"></div>' +
       '<div id="evEmpty" class="empty-state" hidden><i class="bi bi-clipboard-check"></i><div>אין דיווחים עדיין — השתמש בדיווח המהיר למעלה</div></div>';
@@ -87,13 +89,43 @@
       const f = fpick.value(), fc = page.querySelector('#fCat').value;
       return list.filter(e => (!f || String(e.student_id) === f) && (!fc || String(e.category_id) === fc));
     };
+    const au = e => (window.Author ? window.Author.chip(e.created_by) : '');
+    // הדיווח כולו לחיץ — בקשת עמנואל: "שאוכל ללחוץ על זה ולראות מי כתב את זה".
     const itemHtml = e =>
-      '<div class="tl-item"><span class="sev-dot ' + sevClass(e.severity) + '"></span>' +
+      '<div class="tl-item tl-click" data-open="' + e.id + '" title="לחץ לפרטי הדיווח"><span class="sev-dot ' + sevClass(e.severity) + '"></span>' +
       '<div class="tl-main"><strong>' + esc(nameOf(e.student_id)) + '</strong> · ' + esc(catOf(e.category_id)) +
-      (e.note ? ' <span class="tl-note">— ' + esc(e.note) + '</span>' : '') + '</div>' +
+      (e.note ? ' <span class="tl-note">— ' + esc(e.note) + '</span>' : '') + au(e) + '</div>' +
       '<div class="tl-meta">' + esc(hebDate(e.event_date) || e.event_date) + (e.event_time ? ' · ' + esc(e.event_time) : '') + '</div>' +
       '<button class="mini danger" data-del="' + e.id + '"><i class="bi bi-trash"></i></button></div>';
-    const groupKey = (e, g) => g === 'student' ? nameOf(e.student_id) : g === 'class' ? clsOf(e.student_id) : catOf(e.category_id) || 'ללא קטגוריה';
+    const authorKey = e => !window.Author ? 'לא ידוע'
+      : window.Author.name(e.created_by) + (window.Author.role(e.created_by) ? ' (' + window.Author.role(e.created_by) + ')' : '');
+    const groupKey = (e, g) => g === 'student' ? nameOf(e.student_id) : g === 'class' ? clsOf(e.student_id) :
+      g === 'author' ? authorKey(e) : catOf(e.category_id) || 'ללא קטגוריה';
+
+    // חלון פרטי דיווח — מי רשם, באיזה תפקיד, ומתי נרשם בפועל.
+    function openEvent(e) {
+      const uid = e.created_by, A = window.Author;
+      const stamp = e.created_at ? new Date(e.created_at) : null;
+      const stampTxt = stamp && !isNaN(stamp.getTime())
+        ? stamp.toLocaleString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+      const dash = '<span style="color:var(--muted)">—</span>';
+      const row = (lbl, val) => '<div class="det-row"><span class="det-lbl">' + lbl + '</span><span class="det-val">' + (val || dash) + '</span></div>';
+      window.UI.modal({
+        title: 'פרטי הדיווח', cancelLabel: 'סגירה',
+        bodyHTML: '<div class="det-grid">' +
+          row('תלמיד', esc(nameOf(e.student_id))) +
+          row('כיתה', esc(clsOf(e.student_id))) +
+          row('קטגוריה', esc(catOf(e.category_id))) +
+          row('הערה', esc(e.note || '')) +
+          row('תאריך האירוע', esc(hebDate(e.event_date) || e.event_date || '') + (e.event_time ? ' · ' + esc(e.event_time) : '')) +
+          '</div>' +
+          '<div class="det-sec"><h4><i class="bi bi-person-badge"></i> מי רשם את הדיווח</h4><div class="det-grid">' +
+            row('שם', A ? esc(A.name(uid)) : '') +
+            row('תפקיד', (A && A.role(uid)) ? esc(A.role(uid)) : '') +
+            row('נרשם במערכת', esc(stampTxt)) +
+          '</div></div>',
+      });
+    }
     function draw() {
       const rows = filtered();
       const g = page.querySelector('#fGroup').value;
@@ -109,7 +141,12 @@
       }
       page.querySelector('#evCount').textContent = rows.length + ' דיווחים';
       page.querySelector('#evEmpty').hidden = rows.length > 0;
-      page.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', async () => {
+      page.querySelectorAll('[data-open]').forEach(it => it.addEventListener('click', ev => {
+        if (ev.target.closest('[data-del]')) return;          // כפתור המחיקה — לא פתיחת פרטים
+        const e = list.find(x => String(x.id) === it.dataset.open); if (e) openEvent(e);
+      }));
+      page.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', async (ev) => {
+        ev.stopPropagation();
         const ok = await window.UI.confirm('למחוק את הדיווח?'); if (!ok) return;
         await delEvent(Number(b.dataset.del)); list = list.filter(e => e.id != b.dataset.del); draw(); window.UI.toast('נמחק');
       }));
@@ -117,9 +154,10 @@
     page.querySelector('#fCat').addEventListener('change', draw);
     page.querySelector('#fGroup').addEventListener('change', draw);
     page.querySelector('#behCsv').addEventListener('click', () => {
-      const head = ['תלמיד', 'קטגוריה', 'תאריך', 'שעה', 'הערה'];
+      const head = ['תלמיד', 'קטגוריה', 'תאריך', 'שעה', 'הערה', 'נרשם ע"י', 'תפקיד'];
       const lines = [head.join(',')].concat(filtered().map(e =>
-        [nameOf(e.student_id), catOf(e.category_id), e.event_date, e.event_time || '', e.note || '']
+        [nameOf(e.student_id), catOf(e.category_id), e.event_date, e.event_time || '', e.note || '',
+          (window.Author ? window.Author.name(e.created_by) : ''), (window.Author ? window.Author.role(e.created_by) : '')]
           .map(v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(',')));
       const blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
       const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'behavior_report.csv'; a.click();
