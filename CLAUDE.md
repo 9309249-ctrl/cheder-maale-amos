@@ -158,3 +158,10 @@ Supabase שומר רק hash חד-כיווני, ולכן העותק הקריא נ
 - כרטיס התלמיד קרא `t.date`/`f.date` שלא קיימים (`tests.test_date`, `functioning.report_date`) —
   התאריך היה ריק. תוקן.
 - `UI.modal` תומך ב-`cancelLabel` (חלון פרטים נסגר ב"סגירה", לא ב"ביטול").
+- **עריכת תלמיד — "עודכן" שקרי.** ברגע שהמלמד קיבל גישה לרשימת התלמידים, נפתח לו גם כפתור
+  "עריכת פרטים" — אבל `stu_upd` דורש `has_class_access(class_id)`, ו-PostgREST מחזיר `ok:true`
+  בלי שורות כשה-policy חוסמת. תוקן פעמיים: `canEditStudent()` ב-`js/students.js` מסתיר את
+  כפתורי העריכה למי שהתלמיד אינו בכיתות שלו, **וגם** השמירה נכשלת במפורש כשלא חזרה שורה.
+  ⚠️ `canEditStudent` נשען על `Auth.scopeClasses()` (=`user_class_access`) ואינו מכסה את הענף
+  `classes.melamed = auth.uid()` שב-`has_class_access`. כרגע `classes.melamed` הוא `null` בכל
+  הכיתות ולכן אין פער — **אם מתחילים להשתמש בעמודה הזו, צריך להוסיף אותה ל-`A.scope`.**

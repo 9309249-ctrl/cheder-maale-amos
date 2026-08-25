@@ -24,6 +24,15 @@
     const [students, classes] = await Promise.all([getStudents(), getClasses()]);
     // מצב גישה: full=כרטיס מלא+עריכה; limited=מורה עם גישה מוגבלת (רשימת שמות/כרטיס-שלי בלבד)
     const full = !window.Auth || window.Auth.fullStudents();
+    // עריכת תלמיד נאכפת ב-RLS ע"י has_class_access(class_id). PostgREST מחזיר ok:true בלי שורות
+    // כשה-policy חוסמת — כלומר "עודכן" שקרי. לכן גם ה-UI חייב לדעת מי מורשה.
+    // (עד 25/08 זה לא צף כי מלמד היה 'writeonly' והרשימה כולה הוסתרה ב-CSS.)
+    const canEditStudent = s => {
+      if (!window.Auth || !window.currentUser) return true;
+      if (window.currentUser.role === 'מנהל') return true;
+      const sc = window.Auth.scopeClasses();
+      return sc === null ? true : sc.indexOf(s.class_id) !== -1;
+    };
     const canOwn = !full && window.Auth && window.Auth.cap('card_own');   // רשאי לפתוח כרטיס מצומצם (רק הדיווחים שלו)
     const limited = !full;
     page.innerHTML =
@@ -74,7 +83,7 @@
           '<td>' + (s.parent_phone ? '<a href="tel:' + esc(s.parent_phone) + '">' + esc(s.parent_phone) + '</a>' : '') + '</td>' +
           '<td><span class="chip ' + (s.status === 'פעיל' ? 'ok' : 'off') + '">' + esc(s.status || '') + '</span></td>' +
           '<td class="row-act"><button class="mini" data-view="' + s.id + '" title="פרטים"><i class="bi bi-eye"></i></button>' +
-          '<button class="mini" data-edit="' + s.id + '" title="עריכה"><i class="bi bi-pencil"></i></button>' +
+          (canEditStudent(s) ? '<button class="mini" data-edit="' + s.id + '" title="עריכה"><i class="bi bi-pencil"></i></button>' : '') +
           ((window.currentUser || {}).role === 'מנהל' ? '<button class="mini danger" data-del="' + s.id + '" title="מחיקה"><i class="bi bi-trash"></i></button>' : '') + '</td>' +
           '</tr>').join('');
       page.querySelector('#stuCount').textContent = rows.length + ' מתוך ' + students.length + ' תלמידים';
@@ -177,7 +186,7 @@
         sec('שכר לימוד', 'bi-cash-coin', tui, t => li((esc(t.month) || '') + (t.amount ? ' · ₪' + esc(t.amount) : ''), t.status === 'paid' ? 'שולם' : 'חוב', t.status === 'paid' ? 'lo' : 'hi')) +
         tasksSec +
         '<div class="det-actions" style="margin-top:14px">' +
-          '<button class="btn-primary sm" data-edit2><i class="bi bi-pencil"></i> עריכת פרטים</button>' +
+          (canEditStudent(s) ? '<button class="btn-primary sm" data-edit2><i class="bi bi-pencil"></i> עריכת פרטים</button>' : '') +
           '<button class="btn-ghost sm" data-reading><i class="bi bi-book-half"></i> מעקב קריאה</button>' +
           '<button class="btn-ghost sm" data-cert><i class="bi bi-award"></i> אישור לימודים</button>' +
           '<button class="btn-ghost sm" data-print2><i class="bi bi-printer"></i> הדפסה</button>' +
@@ -231,14 +240,20 @@
             notes: val('#f_notes'),
           };
           if (existing) row.id = existing.id;
-          let r = await saveStudent(row);
+          let r = await saveStudent(row), toasted = false;
           // עמידות: אם עמודות משפחה/ת״ז/ת.לידה-עברי טרם קיימות ב-DB — נשמור בלי השדות המורחבים ולא ניפול
           if (!r.ok && /family|tz|birthdate_heb|schema cache|does not exist|Could not find/i.test(r.error || '')) {
             const fb = Object.assign({}, row); delete fb.family; delete fb.tz; delete fb.birthdate_heb;
             r = await saveStudent(fb);
-            if (r.ok) window.UI.toast('נשמר — שדות משפחה/ת״ז/ת.לידה עברי יופעלו לאחר עדכון בסיס הנתונים', 'err');
-          } else if (r.ok) { window.UI.toast(existing ? 'עודכן' : 'נוסף תלמיד'); }
+            if (r.ok) { window.UI.toast('נשמר — שדות משפחה/ת״ז/ת.לידה עברי יופעלו לאחר עדכון בסיס הנתונים', 'err'); toasted = true; }
+          }
           if (!r.ok) { window.UI.toast('שגיאה: ' + (r.error || ''), 'err'); return false; }
+          // ⚠️ RLS חוסמת בשקט: update מצליח בלי להחזיר שורות = לא נשמר כלום.
+          // בלי הבדיקה הזו המשתמש מקבל "עודכן" והנתון נשאר כשהיה.
+          if (existing && (!r.data || !r.data.length)) {
+            window.UI.toast('אין לך הרשאה לערוך תלמיד בכיתה זו — לא בוצע שינוי.', 'err'); return false;
+          }
+          if (!toasted) window.UI.toast(existing ? 'עודכן' : 'נוסף תלמיד');
           if (existing) Object.assign(existing, row); else students.push((r.data && r.data[0]) || row);
           draw();
           return true;
