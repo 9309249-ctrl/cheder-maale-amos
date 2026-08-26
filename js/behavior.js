@@ -37,7 +37,10 @@
     const st = document.createElement('style');
     st.id = 'behToolbarCss';
     st.textContent =
-      '.toolbar.beh-toolbar{grid-template-columns:minmax(260px,2.2fr) 1fr 1.2fr 1fr auto; align-items:start}' +
+      // בורר התלמיד רחב מטבעו (כיתה + חיפוש חי); שורת הספירה יורדת לשורה משלה,
+      // אחרת היא גוזלת ~190px והבורר נשבר לשתי שורות.
+      '.toolbar.beh-toolbar{grid-template-columns:minmax(300px,3fr) 1.1fr 1.7fr 1.1fr; align-items:start}' +
+      '.toolbar.beh-toolbar .count-line{grid-column:1 / -1; align-self:center; margin-top:-2px}' +
       '@media (max-width:1024px){.toolbar.beh-toolbar{grid-template-columns:1fr 1fr}' +
         '.toolbar.beh-toolbar .stu-pick{grid-column:1 / -1}}' +
       '@media (max-width:600px){.toolbar.beh-toolbar{grid-template-columns:1fr}}';
