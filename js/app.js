@@ -79,10 +79,27 @@
     });
   }
 
+  // לוח ימי ההולדת במסך הבית — לכל הצוות (בקשת עמנואל 26/08:
+  // "שהלוח של ימי הולדת יהא חשוף לכל הצוות, בלי המסביב של הדשבורד דוחות").
+  // המכל נוצר מ-JS ולא ב-index.html כדי שגם בית-המורה יקבל אותו באותו מקום.
+  function mountHomeBday() {
+    const home = $('#page-home');
+    if (!home || !window.renderBdayCard) return;
+    let box = home.querySelector('#homeBday');
+    if (!window.currentUser) { if (box) box.innerHTML = ''; return; }   // לפני התחברות אין נתונים לשלוף
+    if (!box) {
+      box = el('div', { id: 'homeBday' });
+      const hero = home.querySelector('.home-hero');
+      if (hero) hero.insertAdjacentElement('afterend', box); else home.insertBefore(box, home.firstChild);
+    }
+    window.renderBdayCard(box);
+  }
+
   // תצוגת בית: מורים (מלמד/מחנך) מקבלים בית פשוט ויפה; שאר התפקידים — רשת אריחים.
   function updateHomeMode() {
     const u = window.currentUser, th = $('#teacherHome'), tg = $('#tileGrid'), hero = document.querySelector('.home-hero');
     if (!th || !tg) return;
+    mountHomeBday();
     const isTeacher = u && (u.role === 'מלמד' || u.role === 'מחנך');
     const hr = $('#homeReports'); if (hr) hr.innerHTML = '';
     if (isTeacher && window.renderTeacherHome) {

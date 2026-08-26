@@ -96,7 +96,13 @@
 
   // שם חודש קנוני. כולל את הכתיבים של Intl ("חשוון","סיוון","אדר א׳") ואת אלה של המזכירות ("חשון","סיון").
   function normMonth(raw) {
-    const m = stripMarks(raw).replace(/\s+/g, ' ');
+    let m = stripMarks(raw).replace(/\s+/g, ' ');
+    // "י״ג באלול תשפ״ו" — זה בדיוק הפורמט שהמערכת עצמה מציגה, ולכן זה מה שמודבק
+    // בחזרה לשדה. אף שם חודש עברי אינו מתחיל ב-ב׳, ולכן קילוף התחילית בטוח.
+    if (m.length > 2 && m.charAt(0) === 'ב') {
+      const bare = m.slice(1);
+      if (/^(תשרי|חשו?ו?ן|מרחשו?ו?ן|כסל[יו]?ו|טבת|שבט|אדר|אדר ?(א|ב|ראשון|שני)|נ[יי]?סן|א[יי]?יר|סיו?ו?ן|תמוז|אב|מנחם אב|אלול)$/.test(bare)) m = bare;
+    }
     if (/^(מר)?חשו?ו?ן$/.test(m)) return 'חשוון';
     if (/^כסל[יו]?ו$/.test(m)) return 'כסלו';
     if (/^סיו?ו?ן$/.test(m)) return 'סיוון';
@@ -148,7 +154,9 @@
     if (!raw) return null;
     const parts = raw.split(/\s+/).filter(Boolean);
     if (parts.length < 2) return null;
-    const day = gematria(stripMarks(parts[0]));
+    // יום בגימטריה ("כ״ג") או בספרות ("23") — שתי הצורות מופיעות בגיליון שהוזן.
+    const dayTxt = stripMarks(parts[0]);
+    const day = /^\d{1,2}$/.test(dayTxt) ? parseInt(dayTxt, 10) : gematria(dayTxt);
     if (!day || day > 30) return null;                     // "אדר ב' תשע״ו" — רשומה בלי יום כלל
     // החודש הוא מילה אחת ("שבט") או שתיים ("אדר ב"). מנסים את הארוך קודם.
     let month = null, rest = 1;
@@ -213,11 +221,11 @@
     return { days: out, unparsed: unparsed, todayHeb: hebText(base) };
   }
 
-  const BDAY_CSS = '#bdayCard{background:var(--card);border:1px solid var(--line);border-radius:14px;' +
+  const BDAY_CSS = '.bd-card{background:var(--card);border:1px solid var(--line);border-radius:14px;' +
     'box-shadow:var(--shadow);padding:14px 16px;margin:2px 2px 16px}' +
-    '#bdayCard h3{font-size:1rem;font-weight:800;color:var(--primary-dark);margin:0 0 10px;display:flex;align-items:center;gap:7px}' +
-    '#bdayCard h3 .bi{color:#c98a1a}' +
-    '#bdayCard.has-today{border-color:#e3b341;box-shadow:0 0 0 3px rgba(227,179,65,.18);background:linear-gradient(180deg,#fffaf0,var(--card))}' +
+    '.bd-card h3{font-size:1rem;font-weight:800;color:var(--primary-dark);margin:0 0 10px;display:flex;align-items:center;gap:7px}' +
+    '.bd-card h3 .bi{color:#c98a1a}' +
+    '.bd-card.has-today{border-color:#e3b341;box-shadow:0 0 0 3px rgba(227,179,65,.18);background:linear-gradient(180deg,#fffaf0,var(--card))}' +
     '.bd-today{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:4px}' +
     '.bd-chip{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #e3b341;' +
     'border-radius:12px;padding:7px 12px;font-weight:700;box-shadow:0 1px 3px rgba(0,0,0,.06)}' +
@@ -231,7 +239,6 @@
     '.bd-row b{min-width:120px;color:var(--primary-dark);white-space:nowrap}' +
     '.bd-warn{margin-top:9px;font-size:.78rem;color:#8a6d3b;background:#fcf8e3;border:1px solid #faebcc;' +
     'border-radius:9px;padding:7px 10px}' +
-    'body.mode-writeonly #bdayCard{display:none !important}' +
     '@media (max-width:640px){.bd-row{flex-direction:column;gap:0}.bd-row b{min-width:0}}';
   function ensureBdayCss() {
     if (document.getElementById('bdayCss')) return;
@@ -247,7 +254,7 @@
     const clsOf = id => { const c = (classes || []).find(x => x.id === id); return c ? c.name : ''; };
     const today = res.days.find(d => d.offset === 0);
     const later = res.days.filter(d => d.offset > 0);
-    let h = '<div id="bdayCard"' + (today ? ' class="has-today"' : '') + '>' +
+    let h = '<div class="bd-card' + (today ? ' has-today' : '') + '">' +
       '<h3><i class="bi bi-balloon-heart-fill"></i> ימי הולדת (לפי התאריך העברי)</h3>';
     if (today) {
       h += '<div class="bd-today">' + today.list.map(x =>
@@ -299,6 +306,22 @@
   document.addEventListener('keydown', e => {
     if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); if (window.currentUser) openSearch(); }
   });
+
+  // ----- לוח ימי ההולדת כרכיב עצמאי (בקשת עמנואל 26/08) -----
+  // "שהלוח של ימי הולדת יהא חשוף לכל הצוות (בלי המסביב של הדשבורד דוחות)".
+  // אותו כרטיס בדיוק, בלי המסך שסביבו: app.js מטמיע אותו במסך הבית לכל משתמש,
+  // כולל מורים שמקבלים בית מקוצר (renderTeacherHome) ואינם רואים אריחים כלל.
+  // אין כאן שינוי הרשאות: שמות התלמידים ותאריכי הלידה גלויים ממילא לכל הצוות
+  // (מודל 2026-08-17) — רק *דיווחים* מוגבלים לכיתה.
+  async function renderBdayCard(host) {
+    if (!host) return;
+    ensureBdayCss();
+    try {
+      const [studs, clsRows] = await Promise.all([students(), window.store.list('classes').catch(() => [])]);
+      host.innerHTML = bdayCardHtml(scanBirthdays(studs, 13), clsRows);
+    } catch (err) { console.error('bday home', err); host.innerHTML = ''; }
+  }
+  window.renderBdayCard = renderBdayCard;
 
   const R = window.PAGE_RENDERERS = window.PAGE_RENDERERS || {};
   R.reports = renderReports;

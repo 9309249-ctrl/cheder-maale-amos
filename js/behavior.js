@@ -39,6 +39,30 @@
     const pickAdd = await window.cv3Picker.html('q');
     const pickFilter = await window.cv3Picker.html('f', { placeholder: 'כל התלמידים' });
     const catFilterOpts = cs.map(c => '<option value="' + c.id + '">' + esc(c.name) + '</option>').join('');
+    // בקשת עמנואל 26/08: "חלונית לחיפוש עדכונים לפי המעדכן — לראות כמה כל אחד מעדכן ואיזה דברים".
+    // הרשימה נבנית מהדיווחים עצמם (ולא מרשימת הצוות) כדי שלא יופיעו שמות בלי אף דיווח,
+    // והמונה שליד כל שם הוא ה"כמה". מי שאין לו הרשאה לראות דיווח — הוא כלל לא הגיע לכאן (RLS).
+    const AU_NONE = '__none__';
+    // מזהה שאין לו שם בספריית הצוות (רשומה יתומה) נכנס לאותו דלי "לא ידוע" —
+    // אחרת מופיעות בבורר כמה שורות זהות בשם "לא ידוע" ואי אפשר להבדיל ביניהן.
+    const auKeyOf = e => {
+      const u = e.created_by;
+      if (!u) return AU_NONE;
+      const nm = window.Author ? window.Author.name(u) : '';
+      return (nm && nm !== 'לא ידוע') ? String(u) : AU_NONE;
+    };
+    const auCount = {};
+    evs.forEach(e => { const k = auKeyOf(e); auCount[k] = (auCount[k] || 0) + 1; });
+    const auLabel = k => {
+      if (k === AU_NONE) return 'לא ידוע';
+      const nm = window.Author ? window.Author.name(k) : '';
+      const rl = window.Author ? window.Author.role(k) : '';
+      return (nm || 'לא ידוע') + (rl ? ' (' + rl + ')' : '');
+    };
+    // "לא ידוע" אינו אדם — תמיד אחרון, גם כשיש לו הרבה רשומות.
+    const auOpts = Object.keys(auCount).sort((a, b) => (a === AU_NONE) - (b === AU_NONE) ||
+      auCount[b] - auCount[a] || auLabel(a).localeCompare(auLabel(b), 'he'))
+      .map(k => '<option value="' + esc(k) + '">' + esc(auLabel(k)) + ' · ' + auCount[k] + '</option>').join('');
     page.innerHTML =
       '<div class="page-head"><button class="back" onclick="showPage(\'home\')">→ חזרה לתפריט</button><h2>מעקב תלמידים</h2>' +
       '<div class="head-actions"><button class="btn-ghost sm" id="behCsv"><i class="bi bi-download"></i> ייצוא דוח CSV</button></div></div>' +
@@ -53,8 +77,9 @@
           '<input class="inp mb0 fld-wide" id="qNote" placeholder="הערה" style="grid-column:1/-2">' +
           '<button class="btn-primary sm" id="qSave"><i class="bi bi-plus-lg"></i> רישום</button>' +
         '</div></div>' +
-      '<div class="toolbar" style="grid-template-columns:1fr auto auto auto">' + pickFilter +
+      '<div class="toolbar" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr))">' + pickFilter +
         '<select class="inp mb0" id="fCat"><option value="">כל הקטגוריות</option>' + catFilterOpts + '</select>' +
+        '<select class="inp mb0" id="fAuthor" title="סינון לפי מי שרשם/עדכן"><option value="">כל המעדכנים</option>' + auOpts + '</select>' +
         '<select class="inp mb0" id="fGroup" title="תצוגה לפי"><option value="">ללא קיבוץ</option><option value="student">לפי תלמיד</option><option value="class">לפי כיתה</option><option value="cat">לפי קטגוריה</option><option value="author">לפי מי שרשם</option></select>' +
         '<span class="count-line" id="evCount" style="align-self:center"></span></div>' +
       '<div id="timeline"></div>' +
@@ -87,7 +112,9 @@
     let list = evs;
     const filtered = () => {
       const f = fpick.value(), fc = page.querySelector('#fCat').value;
-      return list.filter(e => (!f || String(e.student_id) === f) && (!fc || String(e.category_id) === fc));
+      const fa = page.querySelector('#fAuthor').value;
+      return list.filter(e => (!f || String(e.student_id) === f) && (!fc || String(e.category_id) === fc) &&
+        (!fa || auKeyOf(e) === fa));
     };
     const au = e => (window.Author ? window.Author.chip(e.created_by) : '');
     // הדיווח כולו לחיץ — בקשת עמנואל: "שאוכל ללחוץ על זה ולראות מי כתב את זה".
@@ -139,7 +166,8 @@
             esc(k) + ' <span style="color:var(--muted);font-weight:400">(' + groups[k].length + ')</span></h4>' +
             groups[k].map(itemHtml).join('') + '</div>').join('');
       }
-      page.querySelector('#evCount').textContent = rows.length + ' דיווחים';
+      const faSel = page.querySelector('#fAuthor').value;
+      page.querySelector('#evCount').textContent = rows.length + ' דיווחים' + (faSel ? ' · ' + auLabel(faSel) : '');
       page.querySelector('#evEmpty').hidden = rows.length > 0;
       page.querySelectorAll('[data-open]').forEach(it => it.addEventListener('click', ev => {
         if (ev.target.closest('[data-del]')) return;          // כפתור המחיקה — לא פתיחת פרטים
@@ -148,10 +176,21 @@
       page.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', async (ev) => {
         ev.stopPropagation();
         const ok = await window.UI.confirm('למחוק את הדיווח?'); if (!ok) return;
-        await delEvent(Number(b.dataset.del)); list = list.filter(e => e.id != b.dataset.del); draw(); window.UI.toast('נמחק');
+        await delEvent(Number(b.dataset.del)); list = list.filter(e => e.id != b.dataset.del); refreshAuthorOpts(); draw(); window.UI.toast('נמחק');
       }));
     }
+    // אחרי רישום/מחיקה המונים משתנים — בונים מחדש ושומרים על הבחירה הנוכחית.
+    function refreshAuthorOpts() {
+      const sel = page.querySelector('#fAuthor'); if (!sel) return;
+      const keep = sel.value;
+      const cnt = {}; list.forEach(e => { const k = auKeyOf(e); cnt[k] = (cnt[k] || 0) + 1; });
+      sel.innerHTML = '<option value="">כל המעדכנים</option>' + Object.keys(cnt)
+        .sort((a, b) => (a === AU_NONE) - (b === AU_NONE) || cnt[b] - cnt[a] || auLabel(a).localeCompare(auLabel(b), 'he'))
+        .map(k => '<option value="' + esc(k) + '">' + esc(auLabel(k)) + ' · ' + cnt[k] + '</option>').join('');
+      sel.value = cnt[keep] ? keep : '';
+    }
     page.querySelector('#fCat').addEventListener('change', draw);
+    page.querySelector('#fAuthor').addEventListener('change', draw);
     page.querySelector('#fGroup').addEventListener('change', draw);
     page.querySelector('#behCsv').addEventListener('click', () => {
       const head = ['תלמיד', 'קטגוריה', 'תאריך', 'שעה', 'הערה', 'נרשם ע"י', 'תפקיד'];
@@ -169,7 +208,7 @@
       const r = await addEvent(row); if (!r.ok) { window.UI.toast('שגיאה', 'err'); return; }
       list = [(r.data && r.data[0]) || row].concat(list);
       page.querySelector('#qNote').value = ''; page.querySelector('#qTime').value = ''; page.querySelector('#qCat').selectedIndex = 0;
-      draw(); window.UI.toast('דווח בהצלחה');
+      refreshAuthorOpts(); draw(); window.UI.toast('דווח בהצלחה');
     });
     draw();
   }
