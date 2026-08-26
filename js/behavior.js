@@ -28,7 +28,24 @@
 
   async function classes() { return window.cv3Students ? await window.cv3Students.getClasses() : []; }
 
+  // סרגל הכלים של המעקב מחזיק חמישה פקדים (בורר תלמיד רחב + 3 בוררים + מונה).
+  // ⚠️ `grid-template-columns` בסגנון inline גובר על ה-media query של 640px ב-main.css,
+  // ולכן בטלפון הכל נמעך לעמודות של 60px. כאן זה נשלט בגיליון משלו, עם שוברי-שורה משלו,
+  // ובלי לגעת ב-main.css (שיש בו שינויים לא-מקומיטים של מסייע ה-AI).
+  function ensureToolbarCss() {
+    if (document.getElementById('behToolbarCss')) return;
+    const st = document.createElement('style');
+    st.id = 'behToolbarCss';
+    st.textContent =
+      '.toolbar.beh-toolbar{grid-template-columns:minmax(260px,2.2fr) 1fr 1.2fr 1fr auto; align-items:start}' +
+      '@media (max-width:1024px){.toolbar.beh-toolbar{grid-template-columns:1fr 1fr}' +
+        '.toolbar.beh-toolbar .stu-pick{grid-column:1 / -1}}' +
+      '@media (max-width:600px){.toolbar.beh-toolbar{grid-template-columns:1fr}}';
+    document.head.appendChild(st);
+  }
+
   async function renderBehavior(page) {
+    ensureToolbarCss();
     const [studs, cs, evs, cls] = await Promise.all([students(), cats(), events(), classes()]);
     // מיפוי created_by → שם+תפקיד. חייב להיטען לפני הציור, אחרת כל הדיווחים יוצגו "לא ידוע".
     if (window.Author) await window.Author.load();
@@ -77,7 +94,7 @@
           '<input class="inp mb0 fld-wide" id="qNote" placeholder="הערה" style="grid-column:1/-2">' +
           '<button class="btn-primary sm" id="qSave"><i class="bi bi-plus-lg"></i> רישום</button>' +
         '</div></div>' +
-      '<div class="toolbar" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr))">' + pickFilter +
+      '<div class="toolbar beh-toolbar">' + pickFilter +
         '<select class="inp mb0" id="fCat"><option value="">כל הקטגוריות</option>' + catFilterOpts + '</select>' +
         '<select class="inp mb0" id="fAuthor" title="סינון לפי מי שרשם/עדכן"><option value="">כל המעדכנים</option>' + auOpts + '</select>' +
         '<select class="inp mb0" id="fGroup" title="תצוגה לפי"><option value="">ללא קיבוץ</option><option value="student">לפי תלמיד</option><option value="class">לפי כיתה</option><option value="cat">לפי קטגוריה</option><option value="author">לפי מי שרשם</option></select>' +
