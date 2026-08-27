@@ -198,6 +198,39 @@
     });
   }
 
+  // ---------- חלונית קבועה במסך הבית (פתוחה תמיד, מתעדכנת בכל כניסה) ----------
+  function homePanelHtml(res) {
+    const c = res.counts, top = res.list.slice(0, 4);
+    let h = '<div class="ai-home-panel">' +
+      '<div class="aih-head"><span class="ai-badge"><i class="bi bi-stars"></i></span>' +
+      '<div class="aih-t"><strong>מסייע חכם</strong><small>סיכום אוטומטי · מתעדכן בכל כניסה</small></div>' +
+      '<button class="btn-ghost sm aih-more"><i class="bi bi-list-ul"></i> פירוט מלא</button></div>' +
+      '<div class="ai-stats">' +
+        '<div class="ai-stat lv-high"><b>' + c.high + '</b><span>דחוף</span></div>' +
+        '<div class="ai-stat lv-medium"><b>' + c.medium + '</b><span>מעקב</span></div>' +
+        '<div class="ai-stat lv-low"><b>' + c.low + '</b><span>עין פקוחה</span></div>' +
+        '<div class="ai-stat"><b>' + c.students + '</b><span>תלמידים</span></div>' +
+      '</div>';
+    if (top.length) {
+      h += '<div class="aih-list">' + top.map(a =>
+        '<div class="aih-item lv-' + a.level + '" data-id="' + a.id + '"><span class="ava">' + esc((a.name || '?').slice(0, 2)) + '</span>' +
+        '<div class="aih-main"><strong>' + esc(a.name) + '</strong><small>' + esc(a.reasons[0] ? a.reasons[0].text : a.cls) + '</small></div>' +
+        '<span class="ai-level lv-' + a.level + '"><i class="bi ' + LEVEL_ICON[a.level] + '"></i> ' + LEVEL_LABEL[a.level] + '</span></div>'
+      ).join('') + '</div>';
+    } else {
+      h += '<div class="aih-empty"><i class="bi bi-check-circle"></i> הכול תקין — אין תלמידים הדורשים מעקב כעת.</div>';
+    }
+    return h + '</div>';
+  }
+  function renderHomePanel(res) {
+    const box = document.getElementById('aiHomePanel');
+    if (!box) return;
+    if (!window.currentUser) { box.innerHTML = ''; return; }
+    box.innerHTML = homePanelHtml(res);
+    const more = box.querySelector('.aih-more'); if (more) more.addEventListener('click', openDrawer);
+    box.querySelectorAll('.aih-item').forEach(it => it.addEventListener('click', openDrawer));
+  }
+
   // ---------- כפתור צף + תג ----------
   function mountFab() {
     if (document.getElementById('aiFab')) return;
@@ -212,6 +245,7 @@
     if (!window.currentUser || !window.store) return;
     clearCache();
     let res; try { res = await analyze(true); } catch (_) { return; }
+    renderHomePanel(res);
     const fab = document.getElementById('aiFab'); if (!fab) return;
     const badge = fab.querySelector('.ai-fab-badge');
     const n = res.counts.high + res.counts.medium;

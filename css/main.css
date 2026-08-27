@@ -507,6 +507,31 @@ body.dark{ --ai1:#8b5cf6; --ai2:#3aa0c0; }
 .ai-card-t strong{font-weight:800; font-size:.92rem}
 .ai-card-t small{color:var(--muted); font-size:.74rem}
 
+/* ===== מסייע חכם — חלונית קבועה במסך הבית ===== */
+.ai-home-panel{border:1px solid var(--line); border-radius:var(--radius); background:var(--card); box-shadow:var(--shadow);
+  border-inline-start:4px solid var(--ai1); padding:14px 16px; margin:0 0 14px}
+.aih-head{display:flex; align-items:center; gap:10px; margin-bottom:12px}
+.ai-home-panel .ai-badge{background:var(--ai-grad); color:#fff; width:36px; height:36px; border-radius:11px; font-size:1.05rem; display:grid; place-items:center; flex:none}
+.aih-t{flex:1; display:flex; flex-direction:column; line-height:1.2}
+.aih-t strong{font-weight:800; font-size:.96rem}
+.aih-t small{color:var(--muted); font-size:.74rem}
+.ai-home-panel .ai-stats{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px}
+.ai-home-panel .ai-stat{flex:1; min-width:70px; text-align:center; background:var(--bg); border:1px solid var(--line); border-radius:12px; padding:9px 6px; line-height:1.15}
+.ai-home-panel .ai-stat b{display:block; font-size:1.25rem; font-weight:800}
+.ai-home-panel .ai-stat span{font-size:.72rem; color:var(--muted)}
+.ai-home-panel .ai-stat.lv-high b{color:var(--danger)} .ai-home-panel .ai-stat.lv-medium b{color:var(--accent)} .ai-home-panel .ai-stat.lv-low b{color:var(--ok)}
+.aih-list{display:flex; flex-direction:column; gap:8px}
+.aih-item{display:flex; align-items:center; gap:10px; background:var(--bg); border:1px solid var(--line); border-radius:12px; padding:9px 12px; cursor:pointer; transition:border-color .12s, transform .1s;
+  border-inline-start:3px solid var(--line)}
+.aih-item:hover{border-color:var(--primary-light); transform:translateX(-3px)}
+.aih-item.lv-high{border-inline-start-color:var(--danger)} .aih-item.lv-medium{border-inline-start-color:var(--accent)} .aih-item.lv-low{border-inline-start-color:var(--ok)}
+.aih-item .ava{width:34px; height:34px; flex:none}
+.aih-main{flex:1; display:flex; flex-direction:column; line-height:1.25; min-width:0}
+.aih-main strong{font-weight:700; font-size:.92rem}
+.aih-main small{color:var(--muted); font-size:.76rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.aih-empty{display:flex; align-items:center; gap:8px; color:var(--muted); font-size:.9rem; background:var(--bg); border:1px solid var(--line); border-radius:12px; padding:12px 14px}
+.aih-empty i{color:var(--ok)}
+
 /* ===== פאנל ימות — דפדפן שלוחות ומצב קו ===== */
 .ym-stats{display:flex;flex-wrap:wrap;gap:14px}
 .ym-stat{display:flex;align-items:center;gap:10px;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px 16px;flex:1;min-width:170px}
