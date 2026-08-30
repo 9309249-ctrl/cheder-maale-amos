@@ -55,6 +55,10 @@
     const nameOf = id => { const s = studs.find(x => x.id == id); return s ? s.name : '—'; };
     const catOf = id => { const c = cs.find(x => x.id == id); return c ? c.name : ''; };
     const clsOf = sid => { const s = studs.find(x => x.id == sid); const c = s && cls.find(x => x.id == s.class_id); return c ? c.name : 'ללא כיתה'; };
+    // מזהה הכיתה של התלמיד — בסיס לסינון "לפי כיתה" (בקשת עמנואל 30/08).
+    // תלמיד שאינו ברשימה (או בלי כיתה) מחזיר '' ולכן נופל מחוץ לכל סינון כיתה פעיל.
+    const clsIdOf = sid => { const s = studs.find(x => x.id == sid); return s && s.class_id != null ? String(s.class_id) : ''; };
+    const clsNameById = id => { const c = cls.find(x => String(x.id) === String(id)); return c ? c.name : ''; };
     const catOpts = cs.map(c => '<option value="' + c.id + '">' + esc(c.name) + '</option>').join('');
     const pickAdd = await window.cv3Picker.html('q');
     const pickFilter = await window.cv3Picker.html('f', { placeholder: 'כל התלמידים' });
@@ -106,7 +110,19 @@
       '<div id="evEmpty" class="empty-state" hidden><i class="bi bi-clipboard-check"></i><div>אין דיווחים עדיין — השתמש בדיווח המהיר למעלה</div></div>';
 
     const pick = window.cv3Picker.wire(page, 'q');
-    const fpick = window.cv3Picker.wire(page, 'f', () => draw());
+    let lastFCls = '';
+    const fpick = window.cv3Picker.wire(page, 'f', () => {
+      const cur = fpick.classValue();
+      if (cur !== lastFCls) { lastFCls = cur; refreshAuthorOpts(); }
+      draw();
+    });
+    // הבורר נראה כחלק מחיפוש התלמיד ולכן עמנואל לא זיהה שיש סינון כיתה. מסמנים אותו במפורש.
+    const fClsSel = page.querySelector('.stu-pick[data-pick="f"] .pk-class');
+    if (fClsSel) {
+      fClsSel.title = 'סינון הדיווחים לפי כיתה';
+      const all = fClsSel.querySelector('option[value=""]');
+      if (all) all.textContent = 'כל הכיתות';
+    }
     // תאריך עברי חי ליד בורר התאריך (בקשת עמנואל)
     const qDateEl = page.querySelector('#qDate'), qDateHeb = page.querySelector('#qDateHeb');
     const syncHeb = () => { if (qDateHeb) qDateHeb.textContent = hebDate(qDateEl.value); };
@@ -133,8 +149,10 @@
     const filtered = () => {
       const f = fpick.value(), fc = page.querySelector('#fCat').value;
       const fa = page.querySelector('#fAuthor').value;
+      // בורר הכיתה שבתוך בורר התלמיד מסנן עכשיו את הדיווחים עצמם, לא רק את רשימת החיפוש.
+      const fk = fpick.classValue();
       return list.filter(e => (!f || String(e.student_id) === f) && (!fc || String(e.category_id) === fc) &&
-        (!fa || auKeyOf(e) === fa));
+        (!fa || auKeyOf(e) === fa) && (!fk || clsIdOf(e.student_id) === fk));
     };
     const au = e => (window.Author ? window.Author.chip(e.created_by) : '');
     // הדיווח כולו לחיץ — בקשת עמנואל: "שאוכל ללחוץ על זה ולראות מי כתב את זה".
@@ -186,8 +204,9 @@
             esc(k) + ' <span style="color:var(--muted);font-weight:400">(' + groups[k].length + ')</span></h4>' +
             groups[k].map(itemHtml).join('') + '</div>').join('');
       }
-      const faSel = page.querySelector('#fAuthor').value;
-      page.querySelector('#evCount').textContent = rows.length + ' דיווחים' + (faSel ? ' · ' + auLabel(faSel) : '');
+      const faSel = page.querySelector('#fAuthor').value, fkSel = fpick.classValue();
+      page.querySelector('#evCount').textContent = rows.length + ' דיווחים' +
+        (fkSel ? ' · ' + (clsNameById(fkSel) || 'כיתה') : '') + (faSel ? ' · ' + auLabel(faSel) : '');
       page.querySelector('#evEmpty').hidden = rows.length > 0;
       page.querySelectorAll('[data-open]').forEach(it => it.addEventListener('click', ev => {
         if (ev.target.closest('[data-del]')) return;          // כפתור המחיקה — לא פתיחת פרטים
@@ -199,23 +218,28 @@
         await delEvent(Number(b.dataset.del)); list = list.filter(e => e.id != b.dataset.del); refreshAuthorOpts(); draw(); window.UI.toast('נמחק');
       }));
     }
-    // אחרי רישום/מחיקה המונים משתנים — בונים מחדש ושומרים על הבחירה הנוכחית.
+    // אחרי רישום/מחיקה — וגם אחרי שינוי כיתה — המונים משתנים; בונים מחדש ושומרים על הבחירה.
+    // המונה נספר בתוך סינון הכיתה הפעיל בלבד, אחרת נוצר מצב מטעה: "משה רביבו · 54" עם 0 תוצאות.
     function refreshAuthorOpts() {
       const sel = page.querySelector('#fAuthor'); if (!sel) return;
-      const keep = sel.value;
-      const cnt = {}; list.forEach(e => { const k = auKeyOf(e); cnt[k] = (cnt[k] || 0) + 1; });
+      const keep = sel.value, fk = fpick.classValue();
+      const cnt = {};
+      list.forEach(e => { if (fk && clsIdOf(e.student_id) !== fk) return; const k = auKeyOf(e); cnt[k] = (cnt[k] || 0) + 1; });
+      // המעדכן שנבחר נשאר ברשימה גם כשאין לו דיווחים בכיתה הזאת (מוצג "· 0").
+      // בלי זה הבחירה הייתה מתאפסת בשקט והמשתמש היה רואה רשימה אחרת ממה שביקש.
+      if (keep && cnt[keep] == null) cnt[keep] = 0;
       sel.innerHTML = '<option value="">כל המעדכנים</option>' + Object.keys(cnt)
         .sort((a, b) => (a === AU_NONE) - (b === AU_NONE) || cnt[b] - cnt[a] || auLabel(a).localeCompare(auLabel(b), 'he'))
         .map(k => '<option value="' + esc(k) + '">' + esc(auLabel(k)) + ' · ' + cnt[k] + '</option>').join('');
-      sel.value = cnt[keep] ? keep : '';
+      sel.value = keep;
     }
     page.querySelector('#fCat').addEventListener('change', draw);
     page.querySelector('#fAuthor').addEventListener('change', draw);
     page.querySelector('#fGroup').addEventListener('change', draw);
     page.querySelector('#behCsv').addEventListener('click', () => {
-      const head = ['תלמיד', 'קטגוריה', 'תאריך', 'שעה', 'הערה', 'נרשם ע"י', 'תפקיד'];
+      const head = ['תלמיד', 'כיתה', 'קטגוריה', 'תאריך', 'שעה', 'הערה', 'נרשם ע"י', 'תפקיד'];
       const lines = [head.join(',')].concat(filtered().map(e =>
-        [nameOf(e.student_id), catOf(e.category_id), e.event_date, e.event_time || '', e.note || '',
+        [nameOf(e.student_id), clsOf(e.student_id), catOf(e.category_id), e.event_date, e.event_time || '', e.note || '',
           (window.Author ? window.Author.name(e.created_by) : ''), (window.Author ? window.Author.role(e.created_by) : '')]
           .map(v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(',')));
       const blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
