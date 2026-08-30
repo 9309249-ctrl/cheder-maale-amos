@@ -224,3 +224,27 @@ Supabase שומר רק hash חד-כיווני, ולכן העותק הקריא נ
 - **QA:** `_qa_exporter.mjs` (26) ו-`_qa_labels.mjs` (45), מול `_demo` על
   `python -m http.server 8798`. `_demo/` נבנה מהקוד עם `config.js` ריק (מצב DEMO)
   ו-`auto.js` להתחברות אוטומטית; שניהם ב-gitignore.
+
+## שינוי 2026-08-30 — המסייע החכם ירד ממסך הבית (בקשת עמנואל במייל)
+עמנואל: *"שלא יהא את הניתוח של הAI במסך הראשון. אלא רק בעיגול הסגול בצד."*
+**לקוח בלבד — אין מיגרציה ואין נגיעה בהרשאות.**
+
+- הוסר `<div id="aiHomePanel">` מ-`index.html`, והוסרו `homePanelHtml`/`renderHomePanel`
+  והקריאה להם ב-`refresh()` (`js/ai-assistant.js`). בלוק ה-CSS `.ai-home-panel`/`.aih-*` נמחק.
+- **`.ai-stats`/`.ai-stat` נשארו** — הם משמשים גם את המגירה של הכפתור הצף. אל תמחק אותם.
+- **כרטיס ה-AI בכרטיס התלמיד לא נגעו בו** (`cv3AI.cardHtml` ב-`js/students.js`) — הבקשה
+  הייתה על מסך הבית בלבד.
+
+### מלכודת שנתפסה בצילום ה-QA — תג "0" אדום דבוק לכפתור הצף
+`badge.hidden = true` ב-`refresh()` **לא הסתיר כלום**: `[hidden]` של סגנון-הדפדפן נופל מול
+`.ai-fab-badge{display:grid}`, ולכן התג הוצג תמיד — עם "0" בכל מצב שאין דחוף/מעקב.
+תוקן ב-`.ai-fab-badge[hidden]{display:none}`. **הכלל:** כל אלמנט שמוסתר ב-JS דרך `hidden`
+וגם מקבל `display` מ-class — חייב כלל `[hidden]` מפורש.
+
+### מלכודת QA — `_demo` הגיש קוד ישן דרך service-worker
+בדיקה ראשונה ב-`_demo` החזירה "הכל תקין" בזמן ש-`window.CV3.SUPABASE_URL` הצביע על המסד
+**האמיתי** — כלומר הדפדפן הגיש `config.js` מקאש של SW שנרשם בריצה קודמת על אותו origin.
+**כל הארנס playwright חייב לפתוח, לבטל רישום SW, לנקות caches, ורק אז `reload`** —
+אחרת מאמתים קוד ישן. ההארנס הקבוע: `_qa_ai_home.mjs` (משתנים: `BASE`, `SHOT`).
+בנוסף: `page.screenshot` נתקע 30 שניות על `.ai-fab.urgent` — להוסיף `animations:'disabled'`.
+
