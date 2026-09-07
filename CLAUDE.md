@@ -5,6 +5,11 @@
 - remote: **`ctrl`** = `github.com/9309249-ctrl/cheder-maale-amos` (branch `main`).
 - **deploy = `git push ctrl HEAD:main`** → GitHub Pages בונה אוטומטית (SW network-first, רענון מספיק).
 
+⚠️ **`git push ctrl` נכשל ב-403 כש-`gh` פעיל בחשבון אחר.** ב-07/09 החשבון הפעיל היה
+`6787012-max` (של בית התלמוד) והדחיפה נדחתה — "Permission ... denied to 6787012-max".
+התיקון: `gh auth switch --user yossi6742853`, לדחוף, ואז להחזיר את החשבון כפי שהיה,
+כדי לא לשבור סשן מקביל שעובד על ריפו אחר.
+
 **אל תדחוף ל-`orgnew` (maale-amos/cheder)** — זה **אתר מת** (DEMO, SUPABASE ריק, Pages כובה 2026-08-14).
 בעבר נדחפו שינויים לשם בטעות והם לא הופיעו לעמנואל. `origin` (yossi6742853) = fork אישי מפוצל.
 
