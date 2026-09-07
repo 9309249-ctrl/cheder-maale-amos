@@ -17,7 +17,7 @@
     return isNaN(t) ? 9999 : Math.floor((Date.now() - t) / DAY);
   }
   const recent = iso => daysAgoNum(iso) <= WINDOW;
-  function hebDate(iso) { if (!iso) return ''; try { return new Intl.DateTimeFormat('he-u-ca-hebrew', { day: 'numeric', month: 'long' }).format(new Date(String(iso).slice(0, 10) + 'T00:00:00')); } catch (_) { return String(iso); } }
+  function hebDate(iso) { return window.UI ? window.UI.hebDate(iso, { year: false }) : String(iso || ''); }
 
   // ---------- טעינת נתונים (מטמון קצר כדי לא לטעון בכל מעבר מסך) ----------
   let _cache = null, _cacheAt = 0, _loading = null;

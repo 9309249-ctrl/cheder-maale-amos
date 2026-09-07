@@ -14,8 +14,9 @@
   function fmt(d, opts, loc) {
     try { return new Intl.DateTimeFormat(loc || 'he-u-ca-hebrew', opts).format(d); } catch (_) { return ''; }
   }
-  const hebDay = d => fmt(d, { day: 'numeric' });                                   // א׳, ט״ו …
-  const hebFull = d => fmt(d, { day: 'numeric', month: 'long', year: 'numeric' });  // א׳ באב תשפ״ו
+  // יום עברי בודד לרשת הלוח (א׳, ט״ו…) — גימטריה אמיתית, לא Intl (הוא מחזיר ספרות).
+  const hebDay = d => { try { const p = new Intl.DateTimeFormat('he-u-ca-hebrew', { day: 'numeric' }).formatToParts(d); const day = (p.find(x => x.type === 'day') || {}).value; const U = UI(); return U ? U.gematria(parseInt(day, 10)) : day; } catch (_) { return ''; } };
+  const hebFull = d => { const U = UI(); return U ? U.hebDate(d) : fmt(d, { day: 'numeric', month: 'long', year: 'numeric' }); };  // א׳ באב תשפ״ו
   const gregFull = d => fmt(d, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }, 'he-IL');
   // כותרת חודש: עברי מייצג (אמצע החודש הלועזי) + לועזי מלא
   const hebMonthLabel = (y, m) => fmt(new Date(y, m, 15), { month: 'long', year: 'numeric' });

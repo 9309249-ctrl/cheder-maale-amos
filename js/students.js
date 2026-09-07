@@ -165,7 +165,7 @@
       const sec = (title, icon, items, fmt) => items.length ? ('<div class="det-sec"><h4><i class="bi ' + icon + '"></i> ' + title + ' <span class="det-badge">' + items.length + '</span></h4>' + items.slice(-4).reverse().map(fmt).join('') + '</div>') : '';
       const attC = { present: 0, late: 0, absent: 0 }; att.forEach(a => attC[a.status] != null && attC[a.status]++);
       // משימות הקשורות לתלמיד — תאריך יעד בעברית + צ'יפ סטטוס (מראה זהה לסקשנים קריאה/כתיבה/מבחנים)
-      const hebDate = iso => { if (!iso) return ''; try { const d = new Date(String(iso).slice(0, 10) + 'T00:00:00'); return isNaN(d.getTime()) ? String(iso) : new Intl.DateTimeFormat('he-u-ca-hebrew', { day: 'numeric', month: 'long' }).format(d); } catch (_) { return String(iso); } };
+      const hebDate = iso => { try { return window.UI ? window.UI.hebDate(iso, { year: false }) : String(iso || ''); } catch (_) { return String(iso || ''); } };
       const taskLbl = st => st === 'done' ? 'הושלם' : st === 'in_progress' ? 'בתהליך' : 'לביצוע';
       const taskChip = st => '<span class="chip ' + (st === 'done' ? 'ok' : 'off') + '">' + taskLbl(st) + '</span>';
       const tasksSec = '<div class="det-sec"><h4><i class="bi bi-kanban"></i> משימות הקשורות <span class="det-badge">' + tsk.length + '</span></h4>' +
