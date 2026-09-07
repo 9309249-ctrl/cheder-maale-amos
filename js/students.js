@@ -52,6 +52,7 @@
         '<select class="inp mb0" id="stuStatus"><option value="">כל הסטטוסים</option><option value="פעיל">פעיל</option><option value="לא פעיל">לא פעיל</option></select>' +
       '</div>' +
       '<div class="count-line' + (limited ? ' entry-ui' : '') + '" id="stuCount"></div>' +
+      '<div id="classRepBox"></div>' +
       '<div class="table-wrap' + (limited ? ' entry-ui' : '') + '"><table class="tbl"><thead><tr>' +
         (limited ? '<th>שם</th><th>כיתה</th><th>סטטוס</th>' : '<th>שם</th><th>ת״ז</th><th>כיתה</th><th>הורה</th><th>טלפון</th><th>סטטוס</th><th></th>') +
       '</tr></thead><tbody id="stuBody"></tbody></table></div>' +
@@ -88,6 +89,20 @@
           '</tr>').join('');
       page.querySelector('#stuCount').textContent = rows.length + ' מתוך ' + students.length + ' תלמידים';
       page.querySelector('#stuEmpty').hidden = rows.length > 0;
+      const repBox = page.querySelector('#classRepBox');
+      if (repBox) {
+        if (cf && window.cv3AIReport) {
+          const cls = classes.find(c => String(c.id) === cf);
+          repBox.innerHTML = '<button class="btn-ghost sm" id="classRepBtn"><i class="bi bi-stars"></i> חוות דעת AI לכיתה' + (cls ? ' — ' + esc(cls.name) : '') + '</button><div id="classRepSlot" class="tl-note" style="font-size:.84rem;margin-top:6px"></div>';
+          const crb = repBox.querySelector('#classRepBtn');
+          crb.addEventListener('click', () => {
+            crb.disabled = true;
+            window.cv3AIReport.renderClassReport(repBox.querySelector('#classRepSlot'), cf, cls ? cls.name : '').finally(() => { crb.disabled = false; });
+          });
+        } else {
+          repBox.innerHTML = '';
+        }
+      }
       body.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => openDetail(students.find(s => s.id == b.dataset.view))));
       body.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => openForm(students.find(s => s.id == b.dataset.edit))));
       body.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => del(students.find(s => s.id == b.dataset.del))));
@@ -160,6 +175,7 @@
         '<div class="det-head"><span class="ava lg">' + esc((s.name || '?').slice(0, 2)) + '</span>' +
         '<div><div class="det-name">' + esc(fullName(s)) + '</div><span class="chip ' + (s.status === 'פעיל' ? 'ok' : 'off') + '">' + esc(s.status || '') + '</span></div></div>' +
         aiHtml +
+        '<div id="eduRepSlot" class="tl-note" style="font-size:.84rem;margin:4px 0"></div>' +
         '<div class="det-grid">' + row('שם משפחה', s.family) + row('תעודת זהות', s.tz) + row('כיתה', classNameOf(classes, s.class_id)) +
           row('ת. לידה עברי', s.birthdate_heb) + row('ת. לידה לועזי', s.birthdate) + row('שם אבא', s.parent_name) +
           (s.parent_phone ? '<div class="det-row"><span class="det-lbl">טלפון אבא</span><span class="det-val"><a href="tel:' + esc(s.parent_phone) + '">' + esc(s.parent_phone) + '</a></span></div>' : '') +
@@ -191,12 +207,18 @@
           '<button class="btn-ghost sm" data-cert><i class="bi bi-award"></i> אישור לימודים</button>' +
           '<button class="btn-ghost sm" data-print2><i class="bi bi-printer"></i> הדפסה</button>' +
           '<button class="btn-ghost sm" data-go="behavior"><i class="bi bi-plus-lg"></i> דיווח חדש</button>' +
+          (window.cv3AIReport ? '<button class="btn-ghost sm" data-edu-report><i class="bi bi-stars"></i> חוות דעת חינוכית (AI)</button>' : '') +
         '</div>';
       m.el.querySelectorAll('[data-go]').forEach(btn => btn.addEventListener('click', () => { m.close(); showPage(btn.dataset.go); }));
       const eb = m.el.querySelector('[data-edit2]'); if (eb) eb.addEventListener('click', () => { m.close(); openForm(s); });
       const pb = m.el.querySelector('[data-print2]'); if (pb) pb.addEventListener('click', () => window.print());
       const rab = m.el.querySelector('[data-reading]'); if (rab && window.cv3ReadAssess) rab.addEventListener('click', () => window.cv3ReadAssess.openAssessment(s, () => { m.close(); openDetail(s); }));
       const ctb = m.el.querySelector('[data-cert]'); if (ctb && window.cv3Cert) ctb.addEventListener('click', () => window.cv3Cert.openCertificate(s));
+      const erb = m.el.querySelector('[data-edu-report]');
+      if (erb) erb.addEventListener('click', () => {
+        erb.disabled = true;
+        window.cv3AIReport.renderStudentReport(m.el.querySelector('#eduRepSlot'), s).finally(() => { erb.disabled = false; });
+      });
     }
 
     function openForm(existing) {

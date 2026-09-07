@@ -25,3 +25,6 @@ _demo/
 _qa_*
 _shot_*.png
 node_modules/
+
+# Supabase CLI — קאש קישור פרויקט מקומי
+supabase/.temp/
