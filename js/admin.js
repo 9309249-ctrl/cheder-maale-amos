@@ -30,6 +30,7 @@
         '<div class="qr-grid" style="grid-template-columns:1fr auto;margin-top:10px"><input class="inp mb0" id="newCls" placeholder="שם כיתה חדשה"><button class="btn-primary sm" id="addCls"><i class="bi bi-plus-lg"></i> הוסף</button></div></div>' +
       '<div class="qr-card"><h3><i class="bi bi-tags"></i> קטגוריות התנהגות</h3><p class="login-hint" style="margin:0 0 8px">הקטגוריות מופיעות בבחירה בעת דיווח התנהגות. ניתן להוסיף, לערוך ולמחוק.</p><div id="catList"></div>' +
         '<div class="qr-grid" style="grid-template-columns:1fr auto;margin-top:10px"><input class="inp mb0" id="newCat" placeholder="שם קטגוריה חדשה"><button class="btn-primary sm" id="addCat"><i class="bi bi-plus-lg"></i> הוסף</button></div></div>' +
+      '<div class="qr-card"><h3><i class="bi bi-stars"></i> מקורות חינוך ל-AI</h3><div id="eduSrcPanel"></div></div>' +
       '<div class="qr-card"><div class="card-h-row"><h3><i class="bi bi-book-half"></i> פריטי מעקב קריאה</h3><button class="btn-primary sm" id="raCatsBtn"><i class="bi bi-sliders"></i> עריכת פריטים</button></div>' +
         '<p class="login-hint" style="margin:0 0 8px">מבנה מעקב הקריאה לפי מפרט הרבנית חרלפ: כותרת ראשית ← כותרת משנה ← פריט, בנפרד לכיתות א׳–ב׳ ולכיתות ג׳ ומעלה. על כל <b>פריט</b> מסמנים תקין/לא תקין + תאריך העברה, ואפשר להוסיף ציון 1–100.</p><div id="raCatsList"></div></div>' +
       '<div class="qr-card"><div class="card-h-row"><h3><i class="bi bi-people"></i> צוות והרשאות</h3><button class="btn-primary sm" id="usrAdd"><i class="bi bi-person-plus"></i> משתמש חדש</button></div>' +
@@ -352,6 +353,7 @@
     });
 
     drawCls(); drawCats(); drawReadCats(); drawUsers(); drawFb();
+    if (window.cv3EduSources) window.cv3EduSources.renderPanel(page.querySelector('#eduSrcPanel'));
   }
 
   const PAY_METHODS = ['מזומן', 'העברה', 'בית ספר', 'נדרים פלוס'];

@@ -42,6 +42,21 @@
     'ואל תסיים במשפט סיכום — עצור אחרי הצעד המעשי.',
   ].join('\n');
 
+  // מקורות חינוך שמנהל הוסיף (edu-sources.js, 08/09) — מוזרקים לכל פרומפט אחרי
+  // ה-METHOD_PROMPT הקבוע, לפני "נתונים:". אם המודול לא נטען/אין מקורות — no-op.
+  async function eduSourcesText() {
+    try { return window.cv3EduSources ? await window.cv3EduSources.sourcesText() : { text: '', sig: 'es0' }; }
+    catch (_) { return { text: '', sig: 'es0' }; }
+  }
+  function withEduSources(basePrompt, esText) {
+    if (!esText) return basePrompt;
+    const marker = 'נתונים:\n';
+    const idx = basePrompt.lastIndexOf(marker);
+    const block = 'מקורות חינוך נוספים שהמנהל הוסיף למערכת — שלב את הרוח וההנחיות שלהם ' +
+      'בניתוח, לצד השיטה הקבועה למעלה:\n' + esText + '\n\n';
+    return idx === -1 ? (basePrompt + '\n\n' + block) : (basePrompt.slice(0, idx) + block + basePrompt.slice(idx));
+  }
+
   async function gemini(prompt, maxTokens) {
     const body = {
       contents: [{ parts: [{ text: prompt }] }],
@@ -166,11 +181,13 @@
     host.innerHTML = '<div class="ld"><i class="bi bi-stars"></i> מנתח…</div>';
     try {
       const d = await dataFn();
-      let hit = cacheGet(key, d.sig);
+      const es = await eduSourcesText();
+      const sig = d.sig + '|' + es.sig;
+      let hit = cacheGet(key, sig);
       if (!hit) {
-        const txt = await gemini(prompt + d.text, 1000);
-        cacheSet(key, d.sig, txt);
-        hit = cacheGet(key, d.sig) || { text: txt, at: Date.now() };
+        const txt = await gemini(withEduSources(prompt, es.text) + d.text, 1000);
+        cacheSet(key, sig, txt);
+        hit = cacheGet(key, sig) || { text: txt, at: Date.now() };
       }
       host.innerHTML = md(hit.text) +
         '<div class="tl-note" style="font-size:.72rem;margin-top:6px">חוות דעת AI על בסיס שיטת "לא ניתן החינוך למלאכי השרת" · ' +
