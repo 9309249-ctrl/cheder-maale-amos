@@ -175,7 +175,6 @@
         '<div class="det-head"><span class="ava lg">' + esc((s.name || '?').slice(0, 2)) + '</span>' +
         '<div><div class="det-name">' + esc(fullName(s)) + '</div><span class="chip ' + (s.status === 'פעיל' ? 'ok' : 'off') + '">' + esc(s.status || '') + '</span></div></div>' +
         aiHtml +
-        '<div id="eduRepSlot" class="tl-note" style="font-size:.84rem;margin:4px 0"></div>' +
         '<div class="det-grid">' + row('שם משפחה', s.family) + row('תעודת זהות', s.tz) + row('כיתה', classNameOf(classes, s.class_id)) +
           row('ת. לידה עברי', s.birthdate_heb) + row('ת. לידה לועזי', s.birthdate) + row('שם אבא', s.parent_name) +
           (s.parent_phone ? '<div class="det-row"><span class="det-lbl">טלפון אבא</span><span class="det-val"><a href="tel:' + esc(s.parent_phone) + '">' + esc(s.parent_phone) + '</a></span></div>' : '') +
@@ -208,7 +207,9 @@
           '<button class="btn-ghost sm" data-print2><i class="bi bi-printer"></i> הדפסה</button>' +
           '<button class="btn-ghost sm" data-go="behavior"><i class="bi bi-plus-lg"></i> דיווח חדש</button>' +
           (window.cv3AIReport ? '<button class="btn-ghost sm" data-edu-report><i class="bi bi-stars"></i> חוות דעת חינוכית (AI)</button>' : '') +
-        '</div>';
+        '</div>' +
+        // מתחת לכפתור, לא בראש הכרטיס: שם זה נכתב מחוץ לתצוגה ועמנואל חשב שלא קורה כלום (15/09)
+        '<div id="eduRepSlot" class="tl-note" style="font-size:.84rem;margin:8px 0 4px"></div>';
       m.el.querySelectorAll('[data-go]').forEach(btn => btn.addEventListener('click', () => { m.close(); showPage(btn.dataset.go); }));
       const eb = m.el.querySelector('[data-edit2]'); if (eb) eb.addEventListener('click', () => { m.close(); openForm(s); });
       const pb = m.el.querySelector('[data-print2]'); if (pb) pb.addEventListener('click', () => window.print());
@@ -217,7 +218,10 @@
       const erb = m.el.querySelector('[data-edu-report]');
       if (erb) erb.addEventListener('click', () => {
         erb.disabled = true;
-        window.cv3AIReport.renderStudentReport(m.el.querySelector('#eduRepSlot'), s).finally(() => { erb.disabled = false; });
+        const slot = m.el.querySelector('#eduRepSlot');
+        const p = window.cv3AIReport.renderStudentReport(slot, s);
+        try { slot.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (_) {}
+        p.finally(() => { erb.disabled = false; try { slot.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (_) {} });
       });
     }
 
