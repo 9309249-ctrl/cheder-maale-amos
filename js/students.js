@@ -198,7 +198,7 @@
         sec('כתיבה', 'bi-pencil-square', wrt, x => li('רמה: ' + esc(x.level), x.date, null, x.created_by)) +
         (window.cv3ReadAssess ? window.cv3ReadAssess.cardSection(raCats, raAssess) : '') +
         (att.length ? '<div class="det-sec"><h4><i class="bi bi-calendar-check"></i> נוכחות <span class="det-badge">' + att.length + '</span></h4><div class="det-item"><span class="di-main">נוכח ' + att.filter(a => a.status === 'present').length + ' · איחורים ' + att.filter(a => a.status === 'late').length + ' · נעדר ' + att.filter(a => a.status === 'absent').length + '</span></div></div>' : '') +
-        sec('שכר לימוד', 'bi-cash-coin', tui, t => li((esc(t.month) || '') + (t.amount ? ' · ₪' + esc(t.amount) : ''), t.status === 'paid' ? 'שולם' : 'חוב', t.status === 'paid' ? 'lo' : 'hi')) +
+        sec('שכר לימוד', 'bi-cash-coin', tui, t => { const GM = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר']; const mm = /^(\d{4})-(\d{2})$/.exec(String(t.month || '')); const lbl = mm ? GM[Number(mm[2]) - 1] + ' ' + mm[1] : String(t.month || ''); return li((esc(lbl) || '') + (t.amount ? ' · ₪' + esc(t.amount) : ''), t.status === 'paid' ? 'שולם' : 'חוב', t.status === 'paid' ? 'lo' : 'hi'); }) +
         tasksSec +
         '<div class="det-actions" style="margin-top:14px">' +
           (canEditStudent(s) ? '<button class="btn-primary sm" data-edit2><i class="bi bi-pencil"></i> עריכת פרטים</button>' : '') +

@@ -357,12 +357,16 @@
   }
 
   const PAY_METHODS = ['מזומן', 'העברה', 'בית ספר', 'נדרים פלוס'];
+  // שמות החודשים הלועזיים בעברית — לבקשת עמנואל 15/09/2026 שיוצג "אוקטובר" ולא "2026-10".
+  const GREG_MONTHS_HE = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
+  const monthLabel = ym => { const m = /^(\d{4})-(\d{2})$/.exec(String(ym || '')); return m ? GREG_MONTHS_HE[Number(m[2]) - 1] + ' ' + m[1] : String(ym || ''); };
   async function renderTuition(page) {
     const [studs, tuition, classes] = await Promise.all([
       window.cv3Students ? window.cv3Students.getStudents() : [], window.store.list('tuition'),
       window.cv3Students ? window.cv3Students.getClasses() : [],
     ]);
     const nameOf = id => { const s = studs.find(x => x.id == id); return s ? s.name : '—'; };
+    const famOf = id => { const s = studs.find(x => x.id == id); return s ? (s.family || '') : ''; };
     const clsOf = id => { const s = studs.find(x => x.id == id); const c = s && classes.find(x => x.id == s.class_id); return c ? c.name : ''; };
     const ym = today().slice(0, 7);
     const clsFilter = classes.map(c => '<option value="' + c.id + '">' + esc(c.name) + '</option>').join('');
@@ -373,7 +377,7 @@
       '<div class="head-actions"><button class="btn-ghost sm" id="tCsv"><i class="bi bi-download"></i> ייצוא לאקסל</button></div></div>' +
       '<div class="qr-card"><h3><i class="bi bi-cash-coin"></i> רישום תשלום/חוב</h3><div class="qr-grid" style="grid-template-columns:repeat(3,1fr) auto">' +
         pickHtml +
-        '<input class="inp mb0" id="tMonth" type="month" value="' + ym + '" title="חודש">' +
+        '<input class="inp mb0" id="tMonth" type="month" value="' + ym + '" title="תשלום על חודש">' +
         '<input class="inp mb0" id="tDate" type="date" value="' + today() + '" title="תאריך תשלום">' +
         '<input class="inp mb0" id="tAmt" type="number" placeholder="סכום ₪">' +
         '<select class="inp mb0" id="tMethod"><option value="">אמצעי תשלום…</option>' + methodOpts + '</select>' +
@@ -381,14 +385,32 @@
         '<input class="inp mb0" id="tNote" placeholder="הערה (רשות)">' +
         '<button class="btn-primary sm" id="tSave"><i class="bi bi-plus-lg"></i> הוסף</button>' +
       '</div></div>' +
-      '<div class="toolbar" style="grid-template-columns:auto auto 1fr"><select class="inp mb0" id="tClsF"><option value="">כל הכיתות</option>' + clsFilter + '</select>' +
+      // חיפוש חופשי — לבקשת עמנואל 15/09/2026: לראות את סדר התשלומים של משפחה מסוימת לאורך השנה.
+      // מחפש בשם/משפחה/כיתה/חודש (מספרי או שם עברי)/תאריך/סכום/אמצעי/הערה.
+      '<div class="toolbar" style="grid-template-columns:1fr auto auto"><input class="inp mb0" id="tSearch" placeholder="🔍 חיפוש חופשי — שם משפחה, שם תלמיד, חודש (אוקטובר / 10), תאריך, סכום…">' +
+        '<select class="inp mb0" id="tClsF"><option value="">כל הכיתות</option>' + clsFilter + '</select>' +
         '<select class="inp mb0" id="tGroup" title="תצוגה לפי"><option value="">ללא קיבוץ</option><option value="student">לפי תלמיד</option><option value="class">לפי כיתה</option><option value="status">לפי סטטוס</option></select>' +
-        '<span class="count-line" id="tSum" style="align-self:center"></span></div>' +
-      '<div class="table-wrap"><table class="tbl"><thead><tr><th>תלמיד</th><th>כיתה</th><th>חודש</th><th>תאריך</th><th>סכום</th><th>אמצעי</th><th>סטטוס</th><th>הערה</th><th></th></tr></thead><tbody id="tBody"></tbody></table></div>';
+      '</div>' +
+      '<div class="toolbar" style="grid-template-columns:1fr"><span class="count-line" id="tSum"></span></div>' +
+      '<div class="table-wrap"><table class="tbl"><thead><tr><th>תלמיד</th><th>כיתה</th><th>תשלום על חודש</th><th>תאריך תשלום</th><th>סכום</th><th>אמצעי</th><th>סטטוס</th><th>הערה</th><th></th></tr></thead><tbody id="tBody"></tbody></table></div>';
     const pick = window.cv3Picker.wire(page, 'tui');
-    const rows = () => { const cf = page.querySelector('#tClsF').value; return tuition.filter(t => !cf || String((studs.find(s => s.id == t.student_id) || {}).class_id) === cf); };
+    const rows = () => {
+      const cf = page.querySelector('#tClsF').value;
+      const q = (page.querySelector('#tSearch').value || '').trim().toLowerCase();
+      return tuition.filter(t => {
+        if (cf && String((studs.find(s => s.id == t.student_id) || {}).class_id) !== cf) return false;
+        if (!q) return true;
+        const hay = [
+          nameOf(t.student_id), famOf(t.student_id), clsOf(t.student_id),
+          t.month || '', monthLabel(t.month), t.pay_date || '',
+          t.amount != null ? String(t.amount) : '', t.method || '',
+          t.status === 'paid' ? 'שולם' : 'חוב', t.note || '',
+        ].join(' ').toLowerCase();
+        return q.split(/\s+/).every(tok => hay.indexOf(tok) !== -1);
+      });
+    };
     const rowHtml = t =>
-      '<tr><td>' + esc(nameOf(t.student_id)) + '</td><td>' + esc(clsOf(t.student_id)) + '</td><td>' + esc(t.month || '') + '</td><td>' + esc(t.pay_date || '') + '</td>' +
+      '<tr><td>' + esc(nameOf(t.student_id)) + '</td><td>' + esc(clsOf(t.student_id)) + '</td><td>' + esc(monthLabel(t.month)) + '</td><td>' + esc(t.pay_date || '') + '</td>' +
       '<td>' + (t.amount ? '₪' + esc(t.amount) : '') + '</td><td>' + esc(t.method || '') + '</td>' +
       '<td><button class="chip ' + (t.status === 'paid' ? 'ok' : 'off') + '" data-tog="' + t.id + '">' + (t.status === 'paid' ? 'שולם' : 'חוב') + '</button></td>' +
       '<td>' + esc(t.note || '') + '</td>' +
@@ -426,9 +448,10 @@
     });
     page.querySelector('#tClsF').addEventListener('change', draw);
     page.querySelector('#tGroup').addEventListener('change', draw);
+    page.querySelector('#tSearch').addEventListener('input', draw);
     page.querySelector('#tCsv').addEventListener('click', () => {
-      const head = ['תלמיד', 'כיתה', 'חודש', 'תאריך תשלום', 'סכום', 'אמצעי', 'סטטוס', 'הערה'];
-      const lines = [head.join(',')].concat(rows().map(t => [nameOf(t.student_id), clsOf(t.student_id), t.month, t.pay_date, t.amount, t.method, t.status === 'paid' ? 'שולם' : 'חוב', t.note].map(v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(',')));
+      const head = ['תלמיד', 'כיתה', 'תשלום על חודש', 'תאריך תשלום', 'סכום', 'אמצעי', 'סטטוס', 'הערה'];
+      const lines = [head.join(',')].concat(rows().map(t => [nameOf(t.student_id), clsOf(t.student_id), monthLabel(t.month), t.pay_date, t.amount, t.method, t.status === 'paid' ? 'שולם' : 'חוב', t.note].map(v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(',')));
       const blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
       const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'tuition.csv'; a.click();
     });

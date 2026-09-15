@@ -6,6 +6,8 @@
   const today = () => new Date().toISOString().slice(0, 10);
   const ILS = n => '₪' + (Number(n) || 0).toLocaleString('he-IL');
   const METHODS = ['מזומן', 'העברה', 'בית ספר', 'נדרים פלוס'];
+  const GREG_MONTHS_HE = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
+  const monthLabel = ym => { const m = /^(\d{4})-(\d{2})$/.exec(String(ym || '')); return m ? GREG_MONTHS_HE[Number(m[2]) - 1] + ' ' + m[1] : String(ym || ''); };
 
   async function render(page) {
     const [tuition, income, expenses, studs] = await Promise.all([
@@ -56,8 +58,8 @@
       '</div><div class="table-wrap" style="margin-top:10px"><table class="tbl"><thead><tr><th>תאריך</th><th>שם</th><th>ת״ז</th><th>סוג</th><th>אמצעי</th><th>תלוש</th><th>סכום</th><th>הערה</th><th></th></tr></thead><tbody id="exBody"></tbody></table></div></div>' +
 
       // פירוט גביית שכר לימוד (אוטומטי, לקריאה)
-      '<div class="qr-card"><h3><i class="bi bi-cash-stack"></i> גביית שכר לימוד (אוטומטי) <span class="det-badge">' + tuitionPaid.length + '</span></h3><div class="table-wrap"><table class="tbl"><thead><tr><th>תלמיד</th><th>חודש</th><th>תאריך</th><th>סכום</th><th>אמצעי</th></tr></thead><tbody>' +
-        (tuitionPaid.length ? tuitionPaid.map(t => '<tr><td>' + esc(nameOf(t.student_id)) + '</td><td>' + esc(t.month || '') + '</td><td>' + esc(t.pay_date || '') + '</td><td>' + ILS(t.amount) + '</td><td>' + esc(t.method || '') + '</td></tr>').join('') : '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:16px">אין תשלומים ששולמו עדיין</td></tr>') +
+      '<div class="qr-card"><h3><i class="bi bi-cash-stack"></i> גביית שכר לימוד (אוטומטי) <span class="det-badge">' + tuitionPaid.length + '</span></h3><div class="table-wrap"><table class="tbl"><thead><tr><th>תלמיד</th><th>תשלום על חודש</th><th>תאריך</th><th>סכום</th><th>אמצעי</th></tr></thead><tbody>' +
+        (tuitionPaid.length ? tuitionPaid.map(t => '<tr><td>' + esc(nameOf(t.student_id)) + '</td><td>' + esc(monthLabel(t.month)) + '</td><td>' + esc(t.pay_date || '') + '</td><td>' + ILS(t.amount) + '</td><td>' + esc(t.method || '') + '</td></tr>').join('') : '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:16px">אין תשלומים ששולמו עדיין</td></tr>') +
       '</tbody></table></div></div>';
 
     function drawIn() {
@@ -88,7 +90,7 @@
     });
     page.querySelector('#cbCsv').addEventListener('click', () => {
       const lines = ['סוג,תאריך,פרטים,אמצעי,נוסף,סכום,הערה'];
-      tuitionPaid.forEach(t => lines.push(['גביית שכר לימוד', t.pay_date || t.month, nameOf(t.student_id), t.method, '', t.amount, t.note || ''].map(csv).join(',')));
+      tuitionPaid.forEach(t => lines.push(['גביית שכר לימוד — ' + monthLabel(t.month), t.pay_date || t.month, nameOf(t.student_id), t.method, '', t.amount, t.note || ''].map(csv).join(',')));
       income.forEach(r => lines.push(['הכנסה נוספת', r.date, r.source, r.method, '', r.amount, r.note || ''].map(csv).join(',')));
       expenses.forEach(r => lines.push(['הוצאה', r.date, r.name + (r.tz ? ' (' + r.tz + ')' : ''), r.method, r.kind + '/' + r.payslip, '-' + r.amount, r.note || ''].map(csv).join(',')));
       lines.push(csv('יתרה') + ',,,,,,' + balance);
